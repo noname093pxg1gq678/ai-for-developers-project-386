@@ -4,6 +4,7 @@ import { Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import BookingPage from "./BookingPage";
 import {
+  PublicApiError,
   createBooking,
   loadBookingSlots,
   loadMeetingTypes,
@@ -305,5 +306,66 @@ describe("форма гостя", () => {
     });
     expect(await screen.findByText("Вы записаны")).toBeInTheDocument();
     expect(screen.queryByText("Хочу обсудить проект")).toBeNull();
+  });
+});
+
+describe("гонка брони", () => {
+  async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: "09:00" }));
+    await user.type(await screen.findByLabelText("Имя"), "Мария Петрова");
+    await user.type(screen.getByLabelText("Email"), "maria@example.com");
+    await user.click(screen.getByRole("button", { name: "Записаться" }));
+  }
+
+  it("409 показывает сообщение API возле сетки слотов и перезагружает её: занятый слот исчезает", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    // Перезагрузка сетки: слот 09:00 больше не свободен.
+    slotsMock
+      .mockResolvedValueOnce(SAMPLE_SLOTS)
+      .mockResolvedValueOnce(SAMPLE_SLOTS.slice(1));
+    createMock.mockRejectedValueOnce(new PublicApiError(409, "Слот уже занят"));
+    renderAt("/book/call-45");
+
+    await fillAndSubmit(user);
+
+    expect(await screen.findByText("Слот уже занят")).toBeInTheDocument();
+    // Перезагруженная сетка без занятого слота, форма закрыта.
+    expect(
+      await screen.findByRole("button", { name: "09:30" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "09:00" })).toBeNull();
+    expect(screen.queryByLabelText("Имя")).toBeNull();
+    expect(slotsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("404 брони показывает сообщение со ссылкой к типам", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    createMock.mockRejectedValueOnce(
+      new PublicApiError(404, "Тип встречи не найден"),
+    );
+    renderAt("/book/call-45");
+
+    await fillAndSubmit(user);
+
+    expect(
+      await screen.findByText("Тип встречи не найден"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ко всем типам встреч" }),
+    ).toHaveAttribute("href", "/");
+    // Слот-сетка не перезагружается: тип исчез, а не слот занят.
+    expect(slotsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("прочие ошибки брони показывают понятное сообщение", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    createMock.mockRejectedValueOnce(new PublicApiError(0, "сеть недоступна"));
+    renderAt("/book/call-45");
+
+    await fillAndSubmit(user);
+
+    expect(
+      await screen.findByText("Не удалось выполнить бронирование"),
+    ).toBeInTheDocument();
   });
 });

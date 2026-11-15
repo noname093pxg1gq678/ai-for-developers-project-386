@@ -261,12 +261,9 @@ export default function BookingPage() {
       )}
 
       {bookingError && (
-        <Stack align="flex-start" gap="sm" mb="xl">
-          <Text c="red">{bookingError}</Text>
-          <Button component={Link} to="/" variant="light">
-            {BACK_LINK_LABEL}
-          </Button>
-        </Stack>
+        <Text c="red" mb="xl">
+          {bookingError}
+        </Text>
       )}
 
       {meetingType && selectedSlot && (
