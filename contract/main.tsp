@@ -10,6 +10,7 @@ using Http;
 @service(#{
   title: "Календарь звонков",
 })
+@server("/", "API живёт на корне origin: в dev фронтенд проксирует /api, в контейнере то же origin")
 namespace CallBooking;
 
 /** Поля типа встречи, общие для чтения и записи. */

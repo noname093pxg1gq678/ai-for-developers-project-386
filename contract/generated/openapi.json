@@ -539,5 +539,12 @@
         "description": "Ошибка валидации запроса."
       }
     }
-  }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "API живёт на корне origin: в dev фронтенд проксирует /api, в контейнере то же origin",
+      "variables": {}
+    }
+  ]
 }
