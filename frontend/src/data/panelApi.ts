@@ -1,5 +1,5 @@
 // Адаптер панели владельца над сгенерированным SDK (контракт - issue #1).
-// Ошибки API превращаются в PanelApiError со статусом и понятным сообщением.
+// Ошибки API превращаются в ApiError со статусом и понятным сообщением.
 
 import {
   meetingTypesCreateType,
@@ -9,26 +9,13 @@ import {
   meetingsList,
 } from "../api";
 import type { Meeting, MeetingType, MeetingTypeInput } from "../api";
+import { ApiError, toApiError } from "./apiError";
 
-/** Ошибка запроса к API панели: статус HTTP и понятное сообщение. */
-export class PanelApiError extends Error {
-  readonly status: number;
+// Алиас общего класса ошибки для читаемости мест использования в панели.
+export { ApiError as PanelApiError };
 
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-function toPanelApiError(status: number, body: unknown): PanelApiError {
-  const message =
-    typeof body === "object" &&
-    body !== null &&
-    "message" in body &&
-    typeof body.message === "string"
-      ? body.message
-      : "Не удалось выполнить запрос";
-  return new PanelApiError(status, message);
+function toPanelApiError(status: number, body: unknown): ApiError {
+  return toApiError(status, body, "Не удалось выполнить запрос");
 }
 
 export async function loadPanelMeetingTypes(): Promise<MeetingType[]> {

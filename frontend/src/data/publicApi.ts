@@ -1,29 +1,17 @@
 // Адаптер публичных поверхностей (страница гостя и заглушка записи) над
 // сгенерированным SDK (контракт - issue #1). Ошибки API превращаются
-// в PublicApiError со статусом и понятным сообщением.
+// в ApiError со статусом и понятным сообщением.
 
 import { meetingTypesListTypes } from "../api";
 import type { MeetingType } from "../api";
+import { ApiError, toApiError } from "./apiError";
 
-/** Ошибка запроса к API с публичной страницы: статус HTTP и понятное сообщение. */
-export class PublicApiError extends Error {
-  readonly status: number;
+// Алиас общего класса ошибки для читаемости мест использования на публичной
+// странице.
+export { ApiError as PublicApiError };
 
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-function toPublicApiError(status: number, body: unknown): PublicApiError {
-  const message =
-    typeof body === "object" &&
-    body !== null &&
-    "message" in body &&
-    typeof body.message === "string"
-      ? body.message
-      : "Не удалось загрузить данные";
-  return new PublicApiError(status, message);
+function toPublicApiError(status: number, body: unknown): ApiError {
+  return toApiError(status, body, "Не удалось загрузить данные");
 }
 
 export async function loadMeetingTypes(): Promise<MeetingType[]> {
