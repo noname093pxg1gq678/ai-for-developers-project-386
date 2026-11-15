@@ -2,28 +2,45 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PublicPage from "./PublicPage";
-import { DEMO_MEETING_TYPES, fetchMeetingTypes } from "../data/meetingTypes";
-import type { MeetingType } from "../data/meetingTypes";
+import { loadMeetingTypes } from "../data/publicApi";
+import type { MeetingType } from "../api";
 import { renderWithProviders } from "../test/renderWithProviders";
 
-vi.mock("../data/meetingTypes", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../data/meetingTypes")>();
-  return { ...actual, fetchMeetingTypes: vi.fn() };
+vi.mock("../data/publicApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../data/publicApi")>();
+  return { ...actual, loadMeetingTypes: vi.fn() };
 });
 
-const fetchMock = vi.mocked(fetchMeetingTypes);
+const loadMock = vi.mocked(loadMeetingTypes);
+
+const SAMPLE_TYPES: MeetingType[] = [
+  {
+    id: "call-45",
+    title: "Звонок на 45 минут",
+    description: "Созвон для обсуждения проекта. Подготовьте вопросы заранее.",
+    durationMinutes: 45,
+    createdAt: "2026-11-10T09:00:00Z",
+  },
+  {
+    id: "intro-call",
+    title: "Вводный звонок",
+    description: "Знакомство и короткий разговор о задаче.",
+    durationMinutes: 20,
+    createdAt: "2026-11-12T14:00:00Z",
+  },
+];
 
 function renderPage() {
   return renderWithProviders(<PublicPage />);
 }
 
 beforeEach(() => {
-  fetchMock.mockReset();
+  loadMock.mockReset();
 });
 
 describe("публичная страница", () => {
-  it("показывает имя владельца заголовком и меняет title документа", () => {
-    fetchMock.mockResolvedValue(DEMO_MEETING_TYPES);
+  it("показывает имя владельца заголовком и меняет title документа", async () => {
+    loadMock.mockResolvedValue(SAMPLE_TYPES);
     renderPage();
 
     expect(
@@ -33,7 +50,7 @@ describe("публичная страница", () => {
   });
 
   it("показывает карточки типов с описанием и длительностью", async () => {
-    fetchMock.mockResolvedValue(DEMO_MEETING_TYPES);
+    loadMock.mockResolvedValue(SAMPLE_TYPES);
     renderPage();
 
     expect(
@@ -46,7 +63,7 @@ describe("публичная страница", () => {
   });
 
   it("карточка типа ведёт на страницу записи этого типа", async () => {
-    fetchMock.mockResolvedValue(DEMO_MEETING_TYPES);
+    loadMock.mockResolvedValue(SAMPLE_TYPES);
     renderPage();
 
     const link = await screen.findByRole("link", {
@@ -57,17 +74,17 @@ describe("публичная страница", () => {
   });
 
   it("рендерит типы в порядке источника данных, не пересортировывая", async () => {
-    fetchMock.mockResolvedValue(DEMO_MEETING_TYPES);
+    loadMock.mockResolvedValue(SAMPLE_TYPES);
     renderPage();
 
     const links = await screen.findAllByRole("link");
 
-    expect(links[0]).toHaveTextContent(DEMO_MEETING_TYPES[0].title);
-    expect(links[1]).toHaveTextContent(DEMO_MEETING_TYPES[1].title);
+    expect(links[0]).toHaveTextContent(SAMPLE_TYPES[0].title);
+    expect(links[1]).toHaveTextContent(SAMPLE_TYPES[1].title);
   });
 
   it("без типов показывает пустое состояние", async () => {
-    fetchMock.mockResolvedValue([]);
+    loadMock.mockResolvedValue([]);
     renderPage();
 
     expect(
@@ -76,7 +93,7 @@ describe("публичная страница", () => {
   });
 
   it("во время загрузки не показывает ни список, ни состояния", () => {
-    fetchMock.mockImplementation(() => new Promise<MeetingType[]>(() => {}));
+    loadMock.mockImplementation(() => new Promise<MeetingType[]>(() => {}));
     renderPage();
 
     expect(screen.queryByRole("link")).toBeNull();
@@ -86,8 +103,8 @@ describe("публичная страница", () => {
 
   it("при ошибке загрузки предлагает повторить и загружает снова", async () => {
     const user = userEvent.setup();
-    fetchMock.mockRejectedValueOnce(new Error("сеть недоступна"));
-    fetchMock.mockResolvedValueOnce(DEMO_MEETING_TYPES);
+    loadMock.mockRejectedValueOnce(new Error("сеть недоступна"));
+    loadMock.mockResolvedValueOnce(SAMPLE_TYPES);
     renderPage();
 
     expect(

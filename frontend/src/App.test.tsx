@@ -1,10 +1,31 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { loadMeetingTypes } from "./data/publicApi";
+import type { MeetingType } from "./api";
+
+vi.mock("./data/publicApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./data/publicApi")>();
+  return { ...actual, loadMeetingTypes: vi.fn() };
+});
+
+const loadMock = vi.mocked(loadMeetingTypes);
+
+const SAMPLE_TYPES: MeetingType[] = [
+  {
+    id: "call-45",
+    title: "Звонок на 45 минут",
+    description: "Созвон для обсуждения проекта.",
+    durationMinutes: 45,
+    createdAt: "2026-11-10T09:00:00Z",
+  },
+];
 
 beforeEach(() => {
   window.history.pushState({}, "", "/");
+  loadMock.mockReset();
+  loadMock.mockResolvedValue(SAMPLE_TYPES);
 });
 
 describe("маршруты приложения", () => {

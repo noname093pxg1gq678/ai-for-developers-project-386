@@ -10,8 +10,10 @@ import {
   Title,
 } from "@mantine/core";
 import { OWNER_NAME, PUBLIC_PAGE_TITLE } from "../config";
-import { fetchMeetingTypes, type MeetingType } from "../data/meetingTypes";
+import { loadMeetingTypes } from "../data/publicApi";
 import { formatDuration } from "../lib/format";
+
+import type { MeetingType } from "../api";
 
 type LoadStatus = "loading" | "ready" | "error";
 
@@ -28,7 +30,7 @@ export default function PublicPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchMeetingTypes()
+    loadMeetingTypes()
       .then((loaded) => {
         if (cancelled) {
           return;
