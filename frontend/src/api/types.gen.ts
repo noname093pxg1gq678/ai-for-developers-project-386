@@ -45,6 +45,24 @@ export type ConflictError = {
 };
 
 /**
+ * Поля гостя, общие для брони и чтения встречи.
+ */
+export type GuestFields = {
+    /**
+     * Имя гостя.
+     */
+    guestName: string;
+    /**
+     * Email гостя.
+     */
+    guestEmail: string;
+    /**
+     * Комментарий гостя.
+     */
+    comment?: string;
+};
+
+/**
  * Встреча - результат бронирования слота гостем.
  */
 export type Meeting = {
@@ -87,6 +105,10 @@ export type MeetingType = {
      */
     id: string;
     /**
+     * Момент создания, UTC.
+     */
+    createdAt: string;
+    /**
      * Название, например «Звонок на 45 минут».
      */
     title: string;
@@ -98,10 +120,24 @@ export type MeetingType = {
      * Длительность в минутах.
      */
     durationMinutes: number;
+};
+
+/**
+ * Поля типа встречи, общие для чтения и записи.
+ */
+export type MeetingTypeFields = {
     /**
-     * Момент создания, UTC.
+     * Название, например «Звонок на 45 минут».
      */
-    createdAt: string;
+    title: string;
+    /**
+     * Описание для гостя.
+     */
+    description: string;
+    /**
+     * Длительность в минутах.
+     */
+    durationMinutes: number;
 };
 
 /**
@@ -109,7 +145,7 @@ export type MeetingType = {
  */
 export type MeetingTypeInput = {
     /**
-     * Название.
+     * Название, например «Звонок на 45 минут».
      */
     title: string;
     /**
@@ -129,6 +165,13 @@ export type NotFoundError = {
     message: string;
 };
 
+/**
+ * Ошибка валидации запроса.
+ */
+export type ValidationError = {
+    message: string;
+};
+
 export type BookingsCreateData = {
     body: BookingInput;
     path?: never;
@@ -137,6 +180,10 @@ export type BookingsCreateData = {
 };
 
 export type BookingsCreateErrors = {
+    /**
+     * Ошибка валидации запроса.
+     */
+    400: ValidationError;
     /**
      * Тип встречи или слот не найдены.
      */
@@ -180,6 +227,15 @@ export type MeetingTypesCreateTypeData = {
     query?: never;
     url: '/api/meeting-types';
 };
+
+export type MeetingTypesCreateTypeErrors = {
+    /**
+     * Ошибка валидации запроса.
+     */
+    400: ValidationError;
+};
+
+export type MeetingTypesCreateTypeError = MeetingTypesCreateTypeErrors[keyof MeetingTypesCreateTypeErrors];
 
 export type MeetingTypesCreateTypeResponses = {
     /**
@@ -227,6 +283,10 @@ export type MeetingTypesUpdateTypeData = {
 };
 
 export type MeetingTypesUpdateTypeErrors = {
+    /**
+     * Ошибка валидации запроса.
+     */
+    400: ValidationError;
     /**
      * Тип встречи или слот не найдены.
      */

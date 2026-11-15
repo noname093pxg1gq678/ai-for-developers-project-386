@@ -12,11 +12,8 @@ using Http;
 })
 namespace CallBooking;
 
-/** Тип встречи, опубликованный владельцем. */
-model MeetingType {
-  /** Устойчивый идентификатор. */
-  id: string;
-
+/** Поля типа встречи, общие для чтения и записи. */
+model MeetingTypeFields {
   /** Название, например «Звонок на 45 минут». */
   @maxLength(100)
   title: string;
@@ -29,25 +26,37 @@ model MeetingType {
   @minValue(5)
   @maxValue(240)
   durationMinutes: int32;
+}
+
+/** Тип встречи, опубликованный владельцем. */
+model MeetingType {
+  /** Устойчивый идентификатор. */
+  id: string;
 
   /** Момент создания, UTC. */
   createdAt: utcDateTime;
+
+  ...MeetingTypeFields;
 }
 
 /** Данные типа встречи при создании и изменении. */
 model MeetingTypeInput {
-  /** Название. */
+  ...MeetingTypeFields;
+}
+
+/** Поля гостя, общие для брони и чтения встречи. */
+model GuestFields {
+  /** Имя гостя. */
   @maxLength(100)
-  title: string;
+  guestName: string;
 
-  /** Описание для гостя. */
+  /** Email гостя. */
+  @pattern("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+  guestEmail: string;
+
+  /** Комментарий гостя. */
   @maxLength(500)
-  description: string;
-
-  /** Длительность в минутах. */
-  @minValue(5)
-  @maxValue(240)
-  durationMinutes: int32;
+  comment?: string;
 }
 
 /** Встреча - результат бронирования слота гостем. */
@@ -64,17 +73,7 @@ model Meeting {
   /** Старт слота, UTC. */
   startsAt: utcDateTime;
 
-  /** Имя гостя. */
-  @maxLength(100)
-  guestName: string;
-
-  /** Email гостя. */
-  @pattern("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
-  guestEmail: string;
-
-  /** Комментарий гостя. */
-  @maxLength(500)
-  comment?: string;
+  ...GuestFields;
 }
 
 /** Данные бронирования слота гостем. */
@@ -85,22 +84,21 @@ model BookingInput {
   /** Старт свободного слота, UTC. */
   startsAt: utcDateTime;
 
-  /** Имя гостя. */
-  @maxLength(100)
-  guestName: string;
-
-  /** Email гостя. */
-  @pattern("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
-  guestEmail: string;
-
-  /** Комментарий гостя. */
-  @maxLength(500)
-  comment?: string;
+  ...GuestFields;
 }
 
 /** Ошибка API. */
 @error
 model ApiError {
+  message: string;
+}
+
+/** Ошибка валидации запроса. */
+@error
+model ValidationError {
+  @statusCode
+  statusCode: 400;
+
   message: string;
 }
 
@@ -146,19 +144,24 @@ interface MeetingTypes {
 
   /** Создать тип встречи. */
   @post
-  createType(...MeetingTypeInput): CreatedMeetingType;
+  createType(...MeetingTypeInput): CreatedMeetingType | ValidationError;
 
   /** Изменить тип встречи. */
   @put
   @route("{id}")
-  updateType(@path id: string, ...MeetingTypeInput): MeetingType | NotFoundError;
+  updateType(
+    @path id: string,
+    ...MeetingTypeInput
+  ): MeetingType | ValidationError | NotFoundError;
 
   /** Удалить тип встречи. */
   @delete
   @route("{id}")
   deleteType(@path id: string): void | NotFoundError;
 
-  /** Свободные старты слотов в окне записи, UTC. */
+  /** Свободные старты слотов в окне записи, UTC: окно - 14 календарных
+   * дней от текущего дня, прошедшие слоты исключены на момент запроса.
+   */
   @get
   @route("{typeId}/slots")
   listSlots(@path typeId: string): utcDateTime[] | NotFoundError;
@@ -168,7 +171,9 @@ interface MeetingTypes {
 interface Bookings {
   /** Забронировать свободный слот. */
   @post
-  create(...BookingInput): CreatedMeeting | NotFoundError | ConflictError;
+  create(
+    ...BookingInput
+  ): CreatedMeeting | ValidationError | NotFoundError | ConflictError;
 }
 
 @route("/api/meetings")

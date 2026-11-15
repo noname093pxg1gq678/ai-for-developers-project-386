@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { BookingsCreateData, BookingsCreateErrors, BookingsCreateResponses, MeetingsListData, MeetingsListResponses, MeetingTypesCreateTypeData, MeetingTypesCreateTypeResponses, MeetingTypesDeleteTypeData, MeetingTypesDeleteTypeErrors, MeetingTypesDeleteTypeResponses, MeetingTypesListSlotsData, MeetingTypesListSlotsErrors, MeetingTypesListSlotsResponses, MeetingTypesListTypesData, MeetingTypesListTypesResponses, MeetingTypesUpdateTypeData, MeetingTypesUpdateTypeErrors, MeetingTypesUpdateTypeResponses } from './types.gen';
+import type { BookingsCreateData, BookingsCreateErrors, BookingsCreateResponses, MeetingsListData, MeetingsListResponses, MeetingTypesCreateTypeData, MeetingTypesCreateTypeErrors, MeetingTypesCreateTypeResponses, MeetingTypesDeleteTypeData, MeetingTypesDeleteTypeErrors, MeetingTypesDeleteTypeResponses, MeetingTypesListSlotsData, MeetingTypesListSlotsErrors, MeetingTypesListSlotsResponses, MeetingTypesListTypesData, MeetingTypesListTypesResponses, MeetingTypesUpdateTypeData, MeetingTypesUpdateTypeErrors, MeetingTypesUpdateTypeResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -38,7 +38,7 @@ export const meetingTypesListTypes = <ThrowOnError extends boolean = false>(opti
 /**
  * Создать тип встречи.
  */
-export const meetingTypesCreateType = <ThrowOnError extends boolean = false>(options: Options<MeetingTypesCreateTypeData, ThrowOnError>): RequestResult<MeetingTypesCreateTypeResponses, unknown, ThrowOnError> => (options.client ?? client).post<MeetingTypesCreateTypeResponses, unknown, ThrowOnError>({
+export const meetingTypesCreateType = <ThrowOnError extends boolean = false>(options: Options<MeetingTypesCreateTypeData, ThrowOnError>): RequestResult<MeetingTypesCreateTypeResponses, MeetingTypesCreateTypeErrors, ThrowOnError> => (options.client ?? client).post<MeetingTypesCreateTypeResponses, MeetingTypesCreateTypeErrors, ThrowOnError>({
     url: '/api/meeting-types',
     ...options,
     headers: {
@@ -65,7 +65,8 @@ export const meetingTypesUpdateType = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
- * Свободные старты слотов в окне записи, UTC.
+ * Свободные старты слотов в окне записи, UTC: окно - 14 календарных
+ * дней от текущего дня, прошедшие слоты исключены на момент запроса.
  */
 export const meetingTypesListSlots = <ThrowOnError extends boolean = false>(options: Options<MeetingTypesListSlotsData, ThrowOnError>): RequestResult<MeetingTypesListSlotsResponses, MeetingTypesListSlotsErrors, ThrowOnError> => (options.client ?? client).get<MeetingTypesListSlotsResponses, MeetingTypesListSlotsErrors, ThrowOnError>({ url: '/api/meeting-types/{typeId}/slots', ...options });
 

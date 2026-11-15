@@ -22,6 +22,16 @@
               }
             }
           },
+          "400": {
+            "description": "Ошибка валидации запроса.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Тип встречи или слот не найдены.",
             "content": {
@@ -90,6 +100,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Ошибка валидации запроса.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -125,6 +145,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MeetingType"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка валидации запроса.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationError"
                 }
               }
             }
@@ -184,7 +214,7 @@
     "/api/meeting-types/{typeId}/slots": {
       "get": {
         "operationId": "MeetingTypes_listSlots",
-        "description": "Свободные старты слотов в окне записи, UTC.",
+        "description": "Свободные старты слотов в окне записи, UTC: окно - 14 календарных\nдней от текущего дня, прошедшие слоты исключены на момент запроса.",
         "parameters": [
           {
             "name": "typeId",
@@ -308,6 +338,31 @@
         },
         "description": "Слот занят или пересекается с существующей встречей."
       },
+      "GuestFields": {
+        "type": "object",
+        "required": [
+          "guestName",
+          "guestEmail"
+        ],
+        "properties": {
+          "guestName": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Имя гостя."
+          },
+          "guestEmail": {
+            "type": "string",
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "description": "Email гостя."
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Комментарий гостя."
+          }
+        },
+        "description": "Поля гостя, общие для брони и чтения встречи."
+      },
       "Meeting": {
         "type": "object",
         "required": [
@@ -358,15 +413,20 @@
         "type": "object",
         "required": [
           "id",
+          "createdAt",
           "title",
           "description",
-          "durationMinutes",
-          "createdAt"
+          "durationMinutes"
         ],
         "properties": {
           "id": {
             "type": "string",
             "description": "Устойчивый идентификатор."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Момент создания, UTC."
           },
           "title": {
             "type": "string",
@@ -384,14 +444,37 @@
             "minimum": 5,
             "maximum": 240,
             "description": "Длительность в минутах."
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Момент создания, UTC."
           }
         },
         "description": "Тип встречи, опубликованный владельцем."
+      },
+      "MeetingTypeFields": {
+        "type": "object",
+        "required": [
+          "title",
+          "description",
+          "durationMinutes"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Название, например «Звонок на 45 минут»."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Описание для гостя."
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 5,
+            "maximum": 240,
+            "description": "Длительность в минутах."
+          }
+        },
+        "description": "Поля типа встречи, общие для чтения и записи."
       },
       "MeetingTypeInput": {
         "type": "object",
@@ -404,7 +487,7 @@
           "title": {
             "type": "string",
             "maxLength": 100,
-            "description": "Название."
+            "description": "Название, например «Звонок на 45 минут»."
           },
           "description": {
             "type": "string",
@@ -432,6 +515,18 @@
           }
         },
         "description": "Тип встречи или слот не найдены."
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "description": "Ошибка валидации запроса."
       }
     }
   }
