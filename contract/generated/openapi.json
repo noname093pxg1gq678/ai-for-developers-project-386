@@ -43,7 +43,7 @@
             }
           },
           "409": {
-            "description": "Слот занят или пересекается с существующей встречей.",
+            "description": "Слот занят, тип встречи имеет будущие встречи или бронь пересекается с существующей встречей.",
             "content": {
               "application/json": {
                 "schema": {
@@ -183,7 +183,7 @@
       },
       "delete": {
         "operationId": "MeetingTypes_deleteType",
-        "description": "Удалить тип встречи.",
+        "description": "Удалить тип встречи. С будущими встречами удаление запрещено.",
         "parameters": [
           {
             "name": "id",
@@ -204,6 +204,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Слот занят, тип встречи имеет будущие встречи или бронь пересекается с существующей встречей.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictError"
                 }
               }
             }
@@ -336,7 +346,7 @@
             "type": "string"
           }
         },
-        "description": "Слот занят или пересекается с существующей встречей."
+        "description": "Слот занят, тип встречи имеет будущие встречи или бронь пересекается с существующей встречей."
       },
       "GuestFields": {
         "type": "object",

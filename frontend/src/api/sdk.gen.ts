@@ -48,7 +48,7 @@ export const meetingTypesCreateType = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
- * Удалить тип встречи.
+ * Удалить тип встречи. С будущими встречами удаление запрещено.
  */
 export const meetingTypesDeleteType = <ThrowOnError extends boolean = false>(options: Options<MeetingTypesDeleteTypeData, ThrowOnError>): RequestResult<MeetingTypesDeleteTypeResponses, MeetingTypesDeleteTypeErrors, ThrowOnError> => (options.client ?? client).delete<MeetingTypesDeleteTypeResponses, MeetingTypesDeleteTypeErrors, ThrowOnError>({ url: '/api/meeting-types/{id}', ...options });
 

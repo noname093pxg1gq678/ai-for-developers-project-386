@@ -111,7 +111,7 @@ model NotFoundError {
   message: string;
 }
 
-/** Слот занят или пересекается с существующей встречей. */
+/** Слот занят, тип встречи имеет будущие встречи или бронь пересекается с существующей встречей. */
 @error
 model ConflictError {
   @statusCode
@@ -154,10 +154,10 @@ interface MeetingTypes {
     ...MeetingTypeInput
   ): MeetingType | ValidationError | NotFoundError;
 
-  /** Удалить тип встречи. */
+  /** Удалить тип встречи. С будущими встречами удаление запрещено. */
   @delete
   @route("{id}")
-  deleteType(@path id: string): void | NotFoundError;
+  deleteType(@path id: string): void | ConflictError | NotFoundError;
 
   /** Свободные старты слотов в окне записи, UTC: окно - 14 календарных
    * дней от текущего дня, прошедшие слоты исключены на момент запроса.

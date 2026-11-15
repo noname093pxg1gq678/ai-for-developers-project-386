@@ -38,7 +38,7 @@ export type BookingInput = {
 };
 
 /**
- * Слот занят или пересекается с существующей встречей.
+ * Слот занят, тип встречи имеет будущие встречи или бронь пересекается с существующей встречей.
  */
 export type ConflictError = {
     message: string;
@@ -189,7 +189,7 @@ export type BookingsCreateErrors = {
      */
     404: NotFoundError;
     /**
-     * Слот занят или пересекается с существующей встречей.
+     * Слот занят, тип встречи имеет будущие встречи или бронь пересекается с существующей встречей.
      */
     409: ConflictError;
 };
@@ -260,6 +260,10 @@ export type MeetingTypesDeleteTypeErrors = {
      * Тип встречи или слот не найдены.
      */
     404: NotFoundError;
+    /**
+     * Слот занят, тип встречи имеет будущие встречи или бронь пересекается с существующей встречей.
+     */
+    409: ConflictError;
 };
 
 export type MeetingTypesDeleteTypeError = MeetingTypesDeleteTypeErrors[keyof MeetingTypesDeleteTypeErrors];
