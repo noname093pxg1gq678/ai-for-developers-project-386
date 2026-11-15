@@ -23,10 +23,17 @@
 ## Правила
 
 - Коммиты только в формате Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `ci:`, опционально со scope - `feat(api): ...`. Хук commit-msg отклоняет нарушения
+- Коммиты реализации ссылаются на тикет: номер в конце темы или в теле - `feat(booking): форма гостя (#12)`. Закрытие тикета - комментарием с перечнем коммитов, затем `gh issue close`
 - В тексте проекта (код, коммиты, документация) не используется em dash - только обычный дефис `-`
 - Файлы `.github/workflows/hexlet-check.yml` и `.github/workflows/README.md` принадлежат Хекслету: их нельзя менять
 - ESLint и Prettier не подключать: линт - oxlint, форматирование - oxfmt, запуск через hk
 - API строится от контракта: TypeSpec -> OpenAPI -> клиентский SDK; сервер пишется по контракту и проверяется тестами
+
+## Сгенерированные артефакты
+
+- `contract/generated/openapi.json` и `frontend/src/api/` создаются командой `npm run contract:generate` (TypeSpec -> OpenAPI -> SDK через `@hey-api/openapi-ts`) и руками не редактируются: правки затирает следующая генерация
+- Свежесть генератов проверяет `npm run contract:check` - регенерация плюс `git diff --exit-code`; этот шаг выполняется в CI после `mise run check`
+- Серверные артефакты не генерируются: подходящего генератора маршрутов для Fastify нет, сервер пишется вручную по контракту (зафиксировано в README)
 
 ## Agent skills
 

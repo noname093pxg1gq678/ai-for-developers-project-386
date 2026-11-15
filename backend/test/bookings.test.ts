@@ -252,6 +252,34 @@ describe("бронирование слота через API", () => {
     expect(response.json().message).toEqual(expect.any(String));
   });
 
+  it("частичное наложение встреч разной длительности отвечает 409: 60 минут в 10:00, бронь 30 минут в 10:30", async () => {
+    const typeId = await createType(30);
+    const busyTypeId = await createType(60);
+    // Существующая встреча 10:00-11:00 по поясу владельца.
+    seedMeeting({
+      id: crypto.randomUUID(),
+      typeId: busyTypeId,
+      startsAt: "2026-11-16T07:00:00Z",
+      guestName: "Анна Кузнецова",
+      guestEmail: "anna@example.com",
+    });
+
+    // Бронь на 30 минут с 10:30 целиком внутри существующей встречи.
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      payload: {
+        typeId,
+        startsAt: "2026-11-16T07:30:00Z",
+        guestName: "Мария Петрова",
+        guestEmail: "maria@example.com",
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().message).toEqual(expect.any(String));
+  });
+
   it("пересечение с существующей встречей отвечает 409 и слот исчезает из свободных", async () => {
     const typeId = await createType(30);
     const busyTypeId = await createType(45);
