@@ -301,7 +301,6 @@ export default function BookingPage() {
               }}
               error={formErrors.comment}
             />
-            {bookingError && null}
             <Button type="submit">Записаться</Button>
           </Stack>
         </form>
