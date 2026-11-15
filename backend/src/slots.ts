@@ -66,6 +66,27 @@ function wallToInstant(
   return Date.UTC(year, month, day, 0, minuteOfDay) - offset;
 }
 
+/** Пересекается ли интервал [start, start + durationMs) с какой-либо из
+ * встреч (встречи «вплотную» разрешены, issue #12). Наложение запрещено:
+ * интервалы пересекаются, когда старт одного раньше конца другого, и строгое
+ * неравенство оставляет соприкасающиеся интервалы свободными.
+ */
+export function overlapsMeetings(
+  types: readonly MeetingTypeRecord[],
+  meetings: readonly MeetingRecord[],
+  startMs: number,
+  durationMs: number,
+): boolean {
+  const durationByType = new Map(
+    types.map((type) => [type.id, type.durationMinutes * MINUTE_MS]),
+  );
+  return meetings.some((meeting) => {
+    const busyStart = Date.parse(meeting.startsAt);
+    const busyEnd = busyStart + (durationByType.get(meeting.typeId) ?? 0);
+    return busyStart < startMs + durationMs && startMs < busyEnd;
+  });
+}
+
 export function generateFreeStarts(
   types: readonly MeetingTypeRecord[],
   meetings: readonly MeetingRecord[],
@@ -73,13 +94,6 @@ export function generateFreeStarts(
   now: Date,
 ): string[] {
   const slotDurationMs = bookingType.durationMinutes * MINUTE_MS;
-  const durationByType = new Map(
-    types.map((type) => [type.id, type.durationMinutes * MINUTE_MS]),
-  );
-  const busy = meetings.map((meeting) => {
-    const start = Date.parse(meeting.startsAt);
-    return { start, end: start + (durationByType.get(meeting.typeId) ?? 0) };
-  });
 
   const today = wallTime(now, OWNER_TIMEZONE);
   const starts: string[] = [];
@@ -115,13 +129,9 @@ export function generateFreeStarts(
       if (start < now.getTime()) {
         continue;
       }
-      // Пересечение запрещено, вплотную (start == конец встречи или
-      // start == начало встречи - минус длительность слота) разрешено.
-      const overlaps = busy.some(
-        (busySlot) =>
-          busySlot.start < start + slotDurationMs && start < busySlot.end,
-      );
-      if (overlaps) {
+      // Пересечение запрещено, вплотную разрешено - предикат общий
+      // с бронированием (issue #12).
+      if (overlapsMeetings(types, meetings, start, slotDurationMs)) {
         continue;
       }
       starts.push(new Date(start).toISOString());

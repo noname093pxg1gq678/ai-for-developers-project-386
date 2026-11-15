@@ -2,7 +2,7 @@
 // Бронирование слотов - issue #2, поэтому встречи добавляются тестовым
 // хелпером seedMeeting и эндпоинтами брони пока не создаются.
 
-import { generateFreeStarts } from "./slots.js";
+import { generateFreeStarts, overlapsMeetings } from "./slots.js";
 
 export interface MeetingTypeRecord {
   id: string;
@@ -26,8 +26,15 @@ export interface MeetingView extends MeetingRecord {
   typeTitle: string;
 }
 
+/** Встреча для чтения: название типа подставляется на момент чтения. */
+export function meetingView(record: MeetingRecord): MeetingView {
+  const type = meetingTypes.find((candidate) => candidate.id === record.typeId);
+  return { ...record, typeTitle: type?.title ?? "" };
+}
+
 const meetingTypes: MeetingTypeRecord[] = [];
 const meetings: MeetingRecord[] = [];
+const MINUTE_MS = 60_000;
 
 export function resetStore(): void {
   meetingTypes.length = 0;
@@ -100,12 +107,7 @@ export function listUpcomingMeetings(now = new Date()): MeetingView[] {
   return meetings
     .filter((meeting) => isUpcoming(meeting.startsAt, now))
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-    .map((meeting) => {
-      const type = meetingTypes.find(
-        (candidate) => candidate.id === meeting.typeId,
-      );
-      return { ...meeting, typeTitle: type?.title ?? "" };
-    });
+    .map(meetingView);
 }
 
 /** Свободные старты слотов типа в окне записи, UTC ISO-строки (issue #11).
@@ -117,6 +119,38 @@ export function listFreeSlots(typeId: string, now = new Date()): string[] {
     return [];
   }
   return generateFreeStarts(meetingTypes, meetings, type, now);
+}
+
+/** Бронирование свободного слота (issue #12): создаёт встречу, если интервал
+ * не пересекается с существующими встречами (вплотную разрешено),
+ * иначе undefined - на верхнем уровне это ответ 409.
+ * Время начала нормализуется к UTC Z при записи в хранилище.
+ */
+export function createBooking(
+  input: Omit<MeetingRecord, "id">,
+): MeetingRecord | undefined {
+  const type = meetingTypes.find((candidate) => candidate.id === input.typeId);
+  if (!type) {
+    return undefined;
+  }
+  const startMs = Date.parse(input.startsAt);
+  if (
+    overlapsMeetings(
+      meetingTypes,
+      meetings,
+      startMs,
+      type.durationMinutes * MINUTE_MS,
+    )
+  ) {
+    return undefined;
+  }
+  const record: MeetingRecord = {
+    ...input,
+    startsAt: new Date(input.startsAt).toISOString(),
+    id: crypto.randomUUID(),
+  };
+  meetings.push(record);
+  return record;
 }
 
 /** Тестовый хелпер: добавить встречу до реализации брони (issue #2). */

@@ -8,8 +8,11 @@ import {
   listMeetingTypes,
   listUpcomingMeetings,
   meetingTypeExists,
+  meetingView,
   updateMeetingType,
+  createBooking,
 } from "./store.js";
+import type { MeetingRecord } from "./store.js";
 import { validateMeetingTypeBody } from "./validation.js";
 
 export interface AppOptions {
@@ -51,6 +54,16 @@ export async function buildApp(
 
   // Предстоящие встречи владельца по всем типам (контракт).
   app.get("/api/meetings", async () => listUpcomingMeetings());
+
+  // Бронирование свободного слота (контракт, issue #12).
+  app.post("/api/bookings", async (request, reply) => {
+    const input = request.body as Omit<MeetingRecord, "id">;
+    const record = createBooking(input);
+    if (!record) {
+      return reply.code(409).send({ message: "Слот уже занят" });
+    }
+    return reply.code(201).send(meetingView(record));
+  });
 
   app.put("/api/meeting-types/:id", async (request, reply) => {
     const validation = validateMeetingTypeBody(request.body);
