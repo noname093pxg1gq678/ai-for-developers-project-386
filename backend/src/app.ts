@@ -1,5 +1,14 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
+import {
+  createMeetingType,
+  deleteMeetingType,
+  hasFutureMeetings,
+  listMeetingTypes,
+  meetingTypeExists,
+  updateMeetingType,
+} from "./store.js";
+import { validateMeetingTypeBody } from "./validation.js";
 
 export interface AppOptions {
   logger?: boolean;
@@ -15,6 +24,44 @@ export async function buildApp(
   const app = Fastify({ logger: options.logger ?? true });
 
   app.get("/api/health", async () => health());
+
+  app.post("/api/meeting-types", async (request, reply) => {
+    const validation = validateMeetingTypeBody(request.body);
+    if ("error" in validation) {
+      return reply.code(400).send({ message: validation.error });
+    }
+    const record = createMeetingType(validation.input);
+    return reply.code(201).send(record);
+  });
+
+  app.get("/api/meeting-types", async () => listMeetingTypes());
+
+  app.put("/api/meeting-types/:id", async (request, reply) => {
+    const validation = validateMeetingTypeBody(request.body);
+    if ("error" in validation) {
+      return reply.code(400).send({ message: validation.error });
+    }
+    const { id } = request.params as { id: string };
+    const record = updateMeetingType(id, validation.input);
+    if (!record) {
+      return reply.code(404).send({ message: "Тип встречи не найден" });
+    }
+    return record;
+  });
+
+  app.delete("/api/meeting-types/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (!meetingTypeExists(id)) {
+      return reply.code(404).send({ message: "Тип встречи не найден" });
+    }
+    if (hasFutureMeetings(id)) {
+      return reply.code(409).send({
+        message: "Нельзя удалить тип встречи с предстоящими встречами",
+      });
+    }
+    deleteMeetingType(id);
+    return reply.code(204).send();
+  });
 
   if (options.staticRoot) {
     await app.register(fastifyStatic, { root: options.staticRoot });
