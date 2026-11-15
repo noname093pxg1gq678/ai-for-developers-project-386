@@ -1,26 +1,38 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import BookingPage from "./BookingPage";
-import { loadMeetingTypes } from "../data/publicApi";
+import { loadBookingSlots, loadMeetingTypes } from "../data/publicApi";
 import type { MeetingType } from "../api";
 import { renderWithProviders } from "../test/renderWithProviders";
 
 vi.mock("../data/publicApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../data/publicApi")>();
-  return { ...actual, loadMeetingTypes: vi.fn() };
+  return {
+    ...actual,
+    loadMeetingTypes: vi.fn(),
+    loadBookingSlots: vi.fn(),
+  };
 });
 
-const loadMock = vi.mocked(loadMeetingTypes);
+const typesMock = vi.mocked(loadMeetingTypes);
+const slotsMock = vi.mocked(loadBookingSlots);
 
-const SAMPLE_TYPES: MeetingType[] = [
-  {
-    id: "call-45",
-    title: "Звонок на 45 минут",
-    description: "Созвон для обсуждения проекта.",
-    durationMinutes: 45,
-    createdAt: "2026-11-10T09:00:00Z",
-  },
+const SAMPLE_TYPE: MeetingType = {
+  id: "call-45",
+  title: "Звонок на 45 минут",
+  description: "Созвон для обсуждения проекта.",
+  durationMinutes: 45,
+  createdAt: "2026-11-10T09:00:00Z",
+};
+
+// Свободные старты окна от воскресенья 2026-11-15: понедельник 16 и среда 18.
+const SAMPLE_SLOTS = [
+  "2026-11-16T06:00:00.000Z",
+  "2026-11-16T06:30:00.000Z",
+  "2026-11-16T07:00:00.000Z",
+  "2026-11-18T08:00:00.000Z",
 ];
 
 function renderAt(url: string) {
@@ -33,73 +45,144 @@ function renderAt(url: string) {
 }
 
 beforeEach(() => {
-  loadMock.mockReset();
-  loadMock.mockResolvedValue(SAMPLE_TYPES);
+  // Сегодня - воскресенье 2026-11-15, 13:00 по поясу владельца.
+  vi.useFakeTimers({
+    now: new Date("2026-11-15T10:00:00Z"),
+    shouldAdvanceTime: true,
+  });
+  typesMock.mockReset();
+  slotsMock.mockReset();
+  typesMock.mockResolvedValue([SAMPLE_TYPE]);
+  slotsMock.mockResolvedValue(SAMPLE_SLOTS);
 });
 
-describe("заглушка страницы записи", () => {
-  it("показывает заголовок, тип встречи и длительность из API", async () => {
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("страница записи", () => {
+  it("показывает заголовок, название, описание и длительность типа", async () => {
     renderAt("/book/call-45");
 
     expect(
       screen.getByRole("heading", { name: "Запись на встречу" }),
     ).toBeInTheDocument();
+    expect(await screen.findByText("Звонок на 45 минут")).toBeInTheDocument();
     expect(
-      await screen.findByText("Звонок на 45 минут - 45 минут"),
+      screen.getByText("Созвон для обсуждения проекта."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("45 минут")).toBeInTheDocument();
+  });
+
+  it("показывает календарь-полосу из 14 дней начиная с сегодня", async () => {
+    renderAt("/book/call-45");
+
+    const dayButtons = await screen.findAllByRole("button", {
+      name: /\d{2}\.\d{2}/,
+    });
+    expect(dayButtons).toHaveLength(14);
+    expect(
+      screen.getByRole("button", { name: "вс, 15.11" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "сб, 28.11" }),
     ).toBeInTheDocument();
   });
 
-  it("пока типы грузятся, не показывает ни тип, ни сразу заглушку", () => {
-    loadMock.mockImplementation(() => new Promise<MeetingType[]>(() => {}));
+  it("дни без свободных слотов и выходные неактивны", async () => {
+    renderAt("/book/call-45");
+
+    const enabled = await screen.findByRole("button", { name: "пн, 16.11" });
+    expect(enabled).toBeEnabled();
+    expect(screen.getByRole("button", { name: "ср, 18.11" })).toBeEnabled();
+
+    // Сегодня - выходной без слотов, вторник - рабочий день без слотов.
+    expect(screen.getByRole("button", { name: "вс, 15.11" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "вт, 17.11" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "чт, 19.11" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "сб, 21.11" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "пн, 23.11" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "сб, 28.11" })).toBeDisabled();
+  });
+
+  it("по умолчанию открыт первый день со слотами, время в поясе владельца", async () => {
     renderAt("/book/call-45");
 
     expect(
-      screen.getByRole("heading", { name: "Запись на встречу" }),
+      await screen.findByRole("button", { name: "09:00" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Звонок на 45 минут/)).toBeNull();
-    expect(
-      screen.queryByText("Бронирование будет реализовано на следующем этапе."),
-    ).toBeNull();
+    expect(screen.getByRole("button", { name: "09:30" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "10:00" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "11:00" })).toBeNull();
+    expect(screen.getByRole("button", { name: "пн, 16.11" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
-  it("сообщает, что бронирование будет на следующем этапе", async () => {
+  it("выбор другого дня открывает его сетку слотов", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderAt("/book/call-45");
+
+    await user.click(await screen.findByRole("button", { name: "ср, 18.11" }));
+
+    expect(
+      await screen.findByRole("button", { name: "11:00" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "09:00" })).toBeNull();
+    expect(screen.getByRole("button", { name: "ср, 18.11" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("без свободных слотов в окне показывает пустое состояние", async () => {
+    slotsMock.mockResolvedValue([]);
     renderAt("/book/call-45");
 
     expect(
-      await screen.findByText(
-        "Бронирование будет реализовано на следующем этапе.",
-      ),
+      await screen.findByText("На ближайшие 14 дней нет свободных слотов"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "пн, 16.11" })).toBeDisabled();
+  });
+
+  it("при ошибке загрузки слотов предлагает повторить и загружает снова", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    slotsMock.mockRejectedValueOnce(new Error("сеть недоступна"));
+    slotsMock.mockResolvedValueOnce(SAMPLE_SLOTS);
+    renderAt("/book/call-45");
+
+    expect(
+      await screen.findByText("Не удалось загрузить свободные слоты"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Повторить" }));
+
+    expect(
+      await screen.findByRole("button", { name: "09:00" }),
     ).toBeInTheDocument();
   });
 
-  it("ведёт назад ко всем типам встреч", async () => {
-    renderAt("/book/call-45");
-
-    expect(
-      await screen.findByRole("link", { name: "Ко всем типам встреч" }),
-    ).toHaveAttribute("href", "/");
-  });
-
-  it("для неизвестного типа показывает только заглушку", async () => {
+  it("для неизвестного типа показывает сообщение и путь к типам", async () => {
+    typesMock.mockResolvedValue([]);
     renderAt("/book/unknown");
 
     expect(
-      await screen.findByText(
-        "Бронирование будет реализовано на следующем этапе.",
-      ),
+      await screen.findByText("Тип встречи не найден"),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Звонок на 45 минут/)).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Ко всем типам встреч" }),
+    ).toHaveAttribute("href", "/");
   });
 
-  it("при ошибке API показывает только заглушку", async () => {
-    loadMock.mockRejectedValue(new Error("сеть недоступна"));
+  it("во время загрузки слотов не показывает ни сетку, ни пустое состояние", async () => {
+    slotsMock.mockImplementation(() => new Promise<string[]>(() => {}));
     renderAt("/book/call-45");
 
+    expect(await screen.findByText("Звонок на 45 минут")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "09:00" })).toBeNull();
     expect(
-      await screen.findByText(
-        "Бронирование будет реализовано на следующем этапе.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Звонок на 45 минут/)).toBeNull();
+      screen.queryByText("На ближайшие 14 дней нет свободных слотов"),
+    ).toBeNull();
   });
 });
