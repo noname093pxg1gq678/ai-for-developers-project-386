@@ -254,4 +254,34 @@ describe("CRUD типов встреч через API", () => {
     });
     expect(listAfterDelete.json()).toEqual([]);
   });
+
+  it("прошедшая встреча со смещением пояса не мешает удалению типа", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/meeting-types",
+      payload: {
+        title: "Тип с прошедшей встречей",
+        description: "Можно удалить",
+        durationMinutes: 45,
+      },
+    });
+    // Час назад, записано в поясе UTC+14: момент уже прошёл,
+    // а ISO-строка лексикографически выглядит будущей.
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const shifted = new Date(hourAgo.getTime() + 14 * 60 * 60 * 1000);
+    seedMeeting({
+      id: crypto.randomUUID(),
+      typeId: created.json().id,
+      startsAt: `${shifted.toISOString().slice(0, 19)}+14:00`,
+      guestName: "Гость",
+      guestEmail: "guest@example.com",
+    });
+
+    const removed = await app.inject({
+      method: "DELETE",
+      url: `/api/meeting-types/${created.json().id}`,
+    });
+
+    expect(removed.statusCode).toBe(204);
+  });
 });

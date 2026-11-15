@@ -105,4 +105,28 @@ describe("предстоящие встречи через API", () => {
       list.json().map((meeting: { typeTitle: string }) => meeting.typeTitle),
     ).toEqual(["Новое название"]);
   });
+
+  it("время начала нормализуется к UTC (Z) при записи в хранилище", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/meeting-types",
+      payload: {
+        title: "Вводный звонок",
+        description: "Знакомство",
+        durationMinutes: 20,
+      },
+    });
+    seedMeeting({
+      id: "offset",
+      typeId: created.json().id,
+      // 2099-01-01T15:00:00Z, записано со смещением пояса UTC+14
+      startsAt: "2099-01-02T05:00:00+14:00",
+      guestName: "Иван Смирнов",
+      guestEmail: "ivan@example.com",
+    });
+
+    const list = await app.inject({ method: "GET", url: "/api/meetings" });
+
+    expect(list.json()[0].startsAt).toBe("2099-01-01T15:00:00.000Z");
+  });
 });
