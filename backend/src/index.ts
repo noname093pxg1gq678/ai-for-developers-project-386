@@ -1,6 +1,7 @@
 import { buildApp } from "./app.js";
 
-const app = await buildApp();
+const staticRoot = process.env.STATIC_ROOT || undefined;
+const app = await buildApp({ staticRoot });
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
