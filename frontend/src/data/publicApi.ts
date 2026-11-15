@@ -2,8 +2,12 @@
 // сгенерированным SDK (контракт - issue #1). Ошибки API превращаются
 // в ApiError со статусом и понятным сообщением.
 
-import { meetingTypesListSlots, meetingTypesListTypes } from "../api";
-import type { MeetingType } from "../api";
+import {
+  bookingsCreate,
+  meetingTypesListSlots,
+  meetingTypesListTypes,
+} from "../api";
+import type { BookingInput, Meeting, MeetingType } from "../api";
 import { ApiError, toApiError } from "./apiError";
 
 // Алиас общего класса ошибки для читаемости мест использования на публичной
@@ -29,4 +33,13 @@ export async function loadBookingSlots(typeId: string): Promise<string[]> {
     throw toPublicApiError(result.response?.status ?? 0, result.error);
   }
   return result.data ?? [];
+}
+
+/** Бронирование свободного слота: 201 с данными встречи (контракт, issue #12). */
+export async function createBooking(input: BookingInput): Promise<Meeting> {
+  const result = await bookingsCreate({ body: input });
+  if (result.error) {
+    throw toPublicApiError(result.response?.status ?? 0, result.error);
+  }
+  return result.data;
 }

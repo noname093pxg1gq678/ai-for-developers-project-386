@@ -3,7 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import BookingPage from "./BookingPage";
-import { loadBookingSlots, loadMeetingTypes } from "../data/publicApi";
+import {
+  createBooking,
+  loadBookingSlots,
+  loadMeetingTypes,
+} from "../data/publicApi";
 import type { MeetingType } from "../api";
 import { renderWithProviders } from "../test/renderWithProviders";
 
@@ -13,11 +17,13 @@ vi.mock("../data/publicApi", async (importOriginal) => {
     ...actual,
     loadMeetingTypes: vi.fn(),
     loadBookingSlots: vi.fn(),
+    createBooking: vi.fn(),
   };
 });
 
 const typesMock = vi.mocked(loadMeetingTypes);
 const slotsMock = vi.mocked(loadBookingSlots);
+const createMock = vi.mocked(createBooking);
 
 const SAMPLE_TYPE: MeetingType = {
   id: "call-45",
@@ -52,6 +58,7 @@ beforeEach(() => {
   });
   typesMock.mockReset();
   slotsMock.mockReset();
+  createMock.mockReset();
   typesMock.mockResolvedValue([SAMPLE_TYPE]);
   slotsMock.mockResolvedValue(SAMPLE_SLOTS);
 });
@@ -184,5 +191,52 @@ describe("страница записи", () => {
     expect(
       screen.queryByText("На ближайшие 14 дней нет свободных слотов"),
     ).toBeNull();
+  });
+});
+
+describe("форма гостя", () => {
+  it("появляется после выбора слота: имя, email, комментарий", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderAt("/book/call-45");
+
+    await user.click(await screen.findByRole("button", { name: "09:00" }));
+
+    expect(await screen.findByLabelText("Имя")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Комментарий")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Записаться" }),
+    ).toBeInTheDocument();
+  });
+
+  it("ошибки валидации без отправки: пустые поля, лимиты, неверный email", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderAt("/book/call-45");
+
+    await user.click(await screen.findByRole("button", { name: "09:00" }));
+    await user.type(await screen.findByLabelText("Имя"), "и".repeat(101));
+    await user.type(screen.getByLabelText("Email"), "не-почта");
+    await user.type(screen.getByLabelText("Комментарий"), "к".repeat(501));
+    await user.click(screen.getByRole("button", { name: "Записаться" }));
+
+    expect(screen.getAllByText(/длиннее 100 символов/)).not.toHaveLength(0);
+    expect(
+      screen.getAllByText(
+        /Email гостя обязателен и должен быть корректным|корректн/,
+      ),
+    ).not.toHaveLength(0);
+    expect(screen.getAllByText(/длиннее 500 символов/)).not.toHaveLength(0);
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("требует обязательные поля без отправки", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderAt("/book/call-45");
+
+    await user.click(await screen.findByRole("button", { name: "09:00" }));
+    await user.click(screen.getByRole("button", { name: "Записаться" }));
+
+    expect(screen.getAllByText(/обязательно/)).not.toHaveLength(0);
+    expect(createMock).not.toHaveBeenCalled();
   });
 });
