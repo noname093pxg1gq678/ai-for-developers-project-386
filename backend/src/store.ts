@@ -2,6 +2,8 @@
 // Бронирование слотов - issue #2, поэтому встречи добавляются тестовым
 // хелпером seedMeeting и эндпоинтами брони пока не создаются.
 
+import { generateFreeStarts } from "./slots.js";
+
 export interface MeetingTypeRecord {
   id: string;
   createdAt: string;
@@ -104,6 +106,17 @@ export function listUpcomingMeetings(now = new Date()): MeetingView[] {
       );
       return { ...meeting, typeTitle: type?.title ?? "" };
     });
+}
+
+/** Свободные старты слотов типа в окне записи, UTC ISO-строки (issue #11).
+ * Текущее время инъецируется параметром - детерминизм в тестах.
+ */
+export function listFreeSlots(typeId: string, now = new Date()): string[] {
+  const type = meetingTypes.find((candidate) => candidate.id === typeId);
+  if (!type) {
+    return [];
+  }
+  return generateFreeStarts(meetingTypes, meetings, type, now);
 }
 
 /** Тестовый хелпер: добавить встречу до реализации брони (issue #2). */

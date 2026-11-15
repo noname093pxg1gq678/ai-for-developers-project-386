@@ -4,6 +4,7 @@ import {
   createMeetingType,
   deleteMeetingType,
   hasFutureMeetings,
+  listFreeSlots,
   listMeetingTypes,
   listUpcomingMeetings,
   meetingTypeExists,
@@ -15,6 +16,8 @@ export interface AppOptions {
   logger?: boolean;
   /** Корень собранного фронтенда: раздаёт статику со SPA-fallback. */
   staticRoot?: string;
+  /** Текущее время: инъекция для детерминизма тестов (issue #11). */
+  now?: Date;
 }
 
 const health = () => ({ app: "call-booking-api", status: "ok" });
@@ -36,6 +39,15 @@ export async function buildApp(
   });
 
   app.get("/api/meeting-types", async () => listMeetingTypes());
+
+  // Свободные старты слотов в окне записи (контракт, issue #11).
+  app.get("/api/meeting-types/:typeId/slots", async (request, reply) => {
+    const { typeId } = request.params as { typeId: string };
+    if (!meetingTypeExists(typeId)) {
+      return reply.code(404).send({ message: "Тип встречи не найден" });
+    }
+    return listFreeSlots(typeId, options.now);
+  });
 
   // Предстоящие встречи владельца по всем типам (контракт).
   app.get("/api/meetings", async () => listUpcomingMeetings());
