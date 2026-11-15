@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Button,
   Card,
@@ -23,8 +23,7 @@ import {
   updatePanelMeetingType,
 } from "../data/panelApi";
 import { formatDuration, formatMeetingDateTime } from "../lib/format";
-
-type LoadStatus = "loading" | "ready" | "error";
+import { useLoad } from "../lib/useLoad";
 
 type EditorState = { mode: "create" } | { mode: "edit"; target: MeetingType };
 
@@ -74,12 +73,18 @@ function validateForm(form: FormState): FormErrors {
 // Панель владельца: управление типами встреч (issue #8). Достижима
 // только прямым URL /admin, переходов с публичной страницы нет (ADR 0001).
 export default function AdminPage() {
-  const [status, setStatus] = useState<LoadStatus>("loading");
-  const [types, setTypes] = useState<MeetingType[]>([]);
-  const [attempt, setAttempt] = useState(0);
+  const {
+    status,
+    data: types,
+    setData: setTypes,
+    reload: reloadTypes,
+  } = useLoad<MeetingType[]>(loadPanelMeetingTypes, []);
 
-  const [meetingsStatus, setMeetingsStatus] = useState<LoadStatus>("loading");
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const {
+    status: meetingsStatus,
+    data: meetings,
+    reload: reloadMeetings,
+  } = useLoad<Meeting[]>(loadPanelMeetings, []);
 
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -91,50 +96,9 @@ export default function AdminPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    loadPanelMeetingTypes()
-      .then((loaded) => {
-        if (cancelled) {
-          return;
-        }
-        setTypes(loaded);
-        setStatus("ready");
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setStatus("error");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [attempt]);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadPanelMeetings()
-      .then((loaded) => {
-        if (cancelled) {
-          return;
-        }
-        setMeetings(loaded);
-        setMeetingsStatus("ready");
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setMeetingsStatus("error");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [attempt]);
-
   const retry = () => {
-    setStatus("loading");
-    setMeetingsStatus("loading");
-    setAttempt((current) => current + 1);
+    reloadTypes();
+    reloadMeetings();
   };
 
   const openCreate = () => {
