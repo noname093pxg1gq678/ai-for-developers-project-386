@@ -3,16 +3,18 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { resetStore, seedMeeting } from "../src/store.js";
 
-// Бронирование слота гостем через API (issue #12, шов 1 - HTTP inject).
-// Времена берутся в далёком будущем - окно записи и предстоящие встречи
-// детерминированы без инъекции времени.
+// Бронирование слота гостя через API (issue #12, шов 1 - HTTP inject).
+// Фиксированное «сейчас» для детерминизма: понедельник 2026-11-16, 08:00
+// по поясу владельца (Europe/Moscow, ADR 0002). Окно записи - 14 календарных
+// дней от этого дня: пн 16 - пт 20, пн 23 - пт 27; выходные 21, 22, 28, 29.
+const FIXED_NOW = new Date("2026-11-16T05:00:00Z");
 
 describe("бронирование слота через API", () => {
   let app: FastifyInstance;
 
   beforeEach(async () => {
     resetStore();
-    app = await buildApp({ logger: false });
+    app = await buildApp({ logger: false, now: FIXED_NOW });
   });
 
   async function createType(durationMinutes: number): Promise<string> {
@@ -36,7 +38,7 @@ describe("бронирование слота через API", () => {
       url: "/api/bookings",
       payload: {
         typeId,
-        startsAt: "2099-01-01T10:00:00Z",
+        startsAt: "2026-11-16T06:00:00Z",
         guestName: "Мария Петрова",
         guestEmail: "maria@example.com",
         comment: "Хочу обсудить проект",
@@ -47,13 +49,32 @@ describe("бронирование слота через API", () => {
     const meeting = response.json();
     expect(meeting.typeId).toBe(typeId);
     expect(meeting.typeTitle).toBe("Звонок на 45 минут");
-    expect(meeting.startsAt).toBe("2099-01-01T10:00:00.000Z");
+    expect(meeting.startsAt).toBe("2026-11-16T06:00:00.000Z");
     expect(meeting.guestName).toBe("Мария Петрова");
     expect(meeting.guestEmail).toBe("maria@example.com");
     expect(meeting.comment).toBe("Хочу обсудить проект");
     expect(meeting.id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
+  });
+
+  it("offset-дата нормализуется к UTC Z в ответе", async () => {
+    const typeId = await createType(45);
+
+    // 09:00 по поясу владельца = 06:00 UTC - валидный старт слота.
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      payload: {
+        typeId,
+        startsAt: "2026-11-16T09:00:00+03:00",
+        guestName: "Мария Петрова",
+        guestEmail: "maria@example.com",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().startsAt).toBe("2026-11-16T06:00:00.000Z");
   });
 
   it("бронь появляется в предстоящих встречах владельца", async () => {
@@ -63,7 +84,7 @@ describe("бронирование слота через API", () => {
       url: "/api/bookings",
       payload: {
         typeId,
-        startsAt: "2099-01-01T10:00:00Z",
+        startsAt: "2026-11-16T06:00:00Z",
         guestName: "Мария Петрова",
         guestEmail: "maria@example.com",
       },
@@ -75,7 +96,7 @@ describe("бронирование слота через API", () => {
     const meetings = list.json();
     expect(meetings).toHaveLength(1);
     expect(meetings[0].typeTitle).toBe("Звонок на 45 минут");
-    expect(meetings[0].startsAt).toBe("2099-01-01T10:00:00.000Z");
+    expect(meetings[0].startsAt).toBe("2026-11-16T06:00:00.000Z");
     expect(meetings[0].guestName).toBe("Мария Петрова");
   });
 
@@ -84,26 +105,26 @@ describe("бронирование слота через API", () => {
     const invalidPayloads = [
       {
         typeId,
-        startsAt: "2099-01-01T10:00:00Z",
+        startsAt: "2026-11-16T06:00:00Z",
         guestName: "",
         guestEmail: "maria@example.com",
       },
       {
         typeId,
-        startsAt: "2099-01-01T10:00:00Z",
+        startsAt: "2026-11-16T06:00:00Z",
         guestName: "и".repeat(101),
         guestEmail: "maria@example.com",
       },
       {
         typeId,
-        startsAt: "2099-01-01T10:00:00Z",
+        startsAt: "2026-11-16T06:00:00Z",
         guestName: "Мария",
         guestEmail: "не-почта",
       },
-      { typeId, startsAt: "2099-01-01T10:00:00Z", guestName: "Мария" },
+      { typeId, startsAt: "2026-11-16T06:00:00Z", guestName: "Мария" },
       {
         typeId,
-        startsAt: "2099-01-01T10:00:00Z",
+        startsAt: "2026-11-16T06:00:00Z",
         guestName: "Мария",
         guestEmail: "maria@example.com",
         comment: "к".repeat(501),
@@ -115,7 +136,7 @@ describe("бронирование слота через API", () => {
         guestEmail: "maria@example.com",
       },
       {
-        startsAt: "2099-01-01T10:00:00Z",
+        startsAt: "2026-11-16T06:00:00Z",
         guestName: "Мария",
         guestEmail: "maria@example.com",
       },
@@ -141,13 +162,93 @@ describe("бронирование слота через API", () => {
       url: "/api/bookings",
       payload: {
         typeId: "unknown-id",
-        startsAt: "2099-01-01T10:00:00Z",
+        startsAt: "2026-11-16T06:00:00Z",
         guestName: "Мария Петрова",
         guestEmail: "maria@example.com",
       },
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().message).toEqual(expect.any(String));
+  });
+
+  it("бронь на прошедшее время отвечает 400", async () => {
+    const typeId = await createType(30);
+
+    // 07:00 по поясу владельца - валидная позиция сетки, но уже прошло
+    // относительно «сейчас» 08:00.
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      payload: {
+        typeId,
+        startsAt: "2026-11-16T04:00:00Z",
+        guestName: "Мария Петрова",
+        guestEmail: "maria@example.com",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toEqual(expect.any(String));
+
+    const list = await app.inject({ method: "GET", url: "/api/meetings" });
+    expect(list.json()).toEqual([]);
+  });
+
+  it("бронь на выходной отвечает 400", async () => {
+    const typeId = await createType(30);
+
+    // Суббота 21.11, 09:00 по поясу владельца.
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      payload: {
+        typeId,
+        startsAt: "2026-11-21T06:00:00Z",
+        guestName: "Мария Петрова",
+        guestEmail: "maria@example.com",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toEqual(expect.any(String));
+  });
+
+  it("бронь вне сетки 30 минут отвечает 400", async () => {
+    const typeId = await createType(30);
+
+    // 09:10 по поясу владельца - между стартами сетки.
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      payload: {
+        typeId,
+        startsAt: "2026-11-16T06:10:00Z",
+        guestName: "Мария Петрова",
+        guestEmail: "maria@example.com",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toEqual(expect.any(String));
+  });
+
+  it("бронь за окном записи отвечает 400", async () => {
+    const typeId = await createType(30);
+
+    // Понедельник 30.11 - за пределами окна 14 дней (16.11-29.11).
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/bookings",
+      payload: {
+        typeId,
+        startsAt: "2026-11-30T06:00:00Z",
+        guestName: "Мария Петрова",
+        guestEmail: "maria@example.com",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
     expect(response.json().message).toEqual(expect.any(String));
   });
 
@@ -158,7 +259,7 @@ describe("бронирование слота через API", () => {
     seedMeeting({
       id: crypto.randomUUID(),
       typeId: busyTypeId,
-      startsAt: "2099-01-01T07:45:00Z",
+      startsAt: "2026-11-16T07:45:00Z",
       guestName: "Анна Кузнецова",
       guestEmail: "anna@example.com",
     });
@@ -168,7 +269,7 @@ describe("бронирование слота через API", () => {
       url: "/api/bookings",
       payload: {
         typeId,
-        startsAt: "2099-01-01T08:00:00Z",
+        startsAt: "2026-11-16T08:00:00Z",
         guestName: "Мария Петрова",
         guestEmail: "maria@example.com",
       },
@@ -181,7 +282,7 @@ describe("бронирование слота через API", () => {
       method: "GET",
       url: `/api/meeting-types/${typeId}/slots`,
     });
-    expect(slots.json<string[]>()).not.toContain("2099-01-01T08:00:00.000Z");
+    expect(slots.json<string[]>()).not.toContain("2026-11-16T08:00:00.000Z");
   });
 
   it("встреча вплотную к существующей разрешена: 201", async () => {
@@ -192,7 +293,7 @@ describe("бронирование слота через API", () => {
     seedMeeting({
       id: crypto.randomUUID(),
       typeId: busyTypeId,
-      startsAt: "2099-01-01T07:45:00Z",
+      startsAt: "2026-11-16T07:45:00Z",
       guestName: "Анна Кузнецова",
       guestEmail: "anna@example.com",
     });
@@ -202,7 +303,7 @@ describe("бронирование слота через API", () => {
       url: "/api/bookings",
       payload: {
         typeId,
-        startsAt: "2099-01-01T08:30:00Z",
+        startsAt: "2026-11-16T08:30:00Z",
         guestName: "Мария Петрова",
         guestEmail: "maria@example.com",
       },

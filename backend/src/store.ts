@@ -2,7 +2,11 @@
 // Бронирование слотов - issue #2, поэтому встречи добавляются тестовым
 // хелпером seedMeeting и эндпоинтами брони пока не создаются.
 
-import { generateFreeStarts, overlapsMeetings } from "./slots.js";
+import {
+  generateFreeStarts,
+  isSlotPosition,
+  overlapsMeetings,
+} from "./slots.js";
 
 export interface MeetingTypeRecord {
   id: string;
@@ -121,19 +125,32 @@ export function listFreeSlots(typeId: string, now = new Date()): string[] {
   return generateFreeStarts(meetingTypes, meetings, type, now);
 }
 
-/** Бронирование свободного слота (issue #12): создаёт встречу, если интервал
- * не пересекается с существующими встречами (вплотную разрешено),
- * иначе undefined - на верхнем уровне это ответ 409.
- * Время начала нормализуется к UTC Z при записи в хранилище.
+/** Бронирование свободного слота (issue #12): принимает только валидную
+ * позицию свободного слота - тип существует, время нормализовано, старт
+ * в окне записи, в рабочие дни и часы, на сетке 30 минут и не в прошлом;
+ * иначе notFreeSlot - на верхнем уровне это ответ 400. Пересечение
+ * со существующими встречами запрещено (вплотную разрешено) - это ответ
+ * 409. Время начала нормализуется к UTC Z при записи в хранилище.
  */
+export type BookingOutcome =
+  | { status: "created"; record: MeetingRecord }
+  | { status: "unknownType" }
+  | { status: "notFreeSlot" }
+  | { status: "conflict" };
+
 export function createBooking(
   input: Omit<MeetingRecord, "id">,
-): MeetingRecord | undefined {
+  now = new Date(),
+): BookingOutcome {
   const type = meetingTypes.find((candidate) => candidate.id === input.typeId);
   if (!type) {
-    return undefined;
+    return { status: "unknownType" };
   }
   const startMs = Date.parse(input.startsAt);
+  // Валидная позиция слота - общий предикат с генерацией свободных слотов.
+  if (!isSlotPosition(type, startMs, now)) {
+    return { status: "notFreeSlot" };
+  }
   if (
     overlapsMeetings(
       meetingTypes,
@@ -142,7 +159,7 @@ export function createBooking(
       type.durationMinutes * MINUTE_MS,
     )
   ) {
-    return undefined;
+    return { status: "conflict" };
   }
   const record: MeetingRecord = {
     ...input,
@@ -150,7 +167,7 @@ export function createBooking(
     id: crypto.randomUUID(),
   };
   meetings.push(record);
-  return record;
+  return { status: "created", record };
 }
 
 /** Тестовый хелпер: добавить встречу до реализации брони (issue #2). */

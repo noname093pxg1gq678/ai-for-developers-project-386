@@ -54,20 +54,24 @@ export async function buildApp(
   // Предстоящие встречи владельца по всем типам (контракт).
   app.get("/api/meetings", async () => listUpcomingMeetings());
 
-  // Бронирование свободного слота (контракт, issue #12).
+  // Бронирование свободного слота (контракт, issue #12): только валидная
+  // позиция свободного слота, пересечение - 409.
   app.post("/api/bookings", async (request, reply) => {
     const validation = validateBookingBody(request.body);
     if ("error" in validation) {
       return reply.code(400).send({ message: validation.error });
     }
-    if (!meetingTypeExists(validation.input.typeId)) {
+    const outcome = createBooking(validation.input, options.now);
+    if (outcome.status === "unknownType") {
       return reply.code(404).send({ message: "Тип встречи не найден" });
     }
-    const record = createBooking(validation.input);
-    if (!record) {
+    if (outcome.status === "notFreeSlot") {
+      return reply.code(400).send({ message: "Не свободный слот" });
+    }
+    if (outcome.status === "conflict") {
       return reply.code(409).send({ message: "Слот уже занят" });
     }
-    return reply.code(201).send(meetingView(record));
+    return reply.code(201).send(meetingView(outcome.record));
   });
 
   app.put("/api/meeting-types/:id", async (request, reply) => {

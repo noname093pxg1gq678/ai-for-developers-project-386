@@ -14,6 +14,8 @@ export const BOOKING_WINDOW_DAYS = 14;
 export const OWNER_TIMEZONE = "Europe/Moscow";
 
 const SLOT_STEP_MINUTES = 30;
+const DAY_MINUTES = 24 * 60;
+const DAY_MS = 86_400_000;
 const WORK_START_MINUTES = 9 * 60;
 const WORK_END_MINUTES = 18 * 60;
 const MINUTE_MS = 60_000;
@@ -101,41 +103,76 @@ export function generateFreeStarts(
     const day = new Date(
       Date.UTC(today.year, today.month, today.day + dayOffset),
     );
-    // Рабочие дни - понедельник по пятницу (контракт).
-    const weekday = day.getUTCDay();
-    if (weekday === 0 || weekday === 6) {
-      continue;
-    }
-    const dayStart = wallToInstant(
-      day.getUTCFullYear(),
-      day.getUTCMonth(),
-      day.getUTCDate(),
-      WORK_START_MINUTES,
-      OWNER_TIMEZONE,
-    );
-    const dayEnd = wallToInstant(
-      day.getUTCFullYear(),
-      day.getUTCMonth(),
-      day.getUTCDate(),
-      WORK_END_MINUTES,
-      OWNER_TIMEZONE,
-    );
+    // Кандидаты - вся сетка 30 минут суток пояса владельца; отбор
+    // валидной позиции слота - общий предикат с бронированием.
     for (
-      let start = dayStart;
-      start + slotDurationMs <= dayEnd;
-      start += SLOT_STEP_MINUTES * MINUTE_MS
+      let minuteOfDay = 0;
+      minuteOfDay < DAY_MINUTES;
+      minuteOfDay += SLOT_STEP_MINUTES
     ) {
-      // Прошедшие слоты исключены на момент запроса (контракт).
-      if (start < now.getTime()) {
+      const startMs = wallToInstant(
+        day.getUTCFullYear(),
+        day.getUTCMonth(),
+        day.getUTCDate(),
+        minuteOfDay,
+        OWNER_TIMEZONE,
+      );
+      if (!isSlotPosition(bookingType, startMs, now)) {
         continue;
       }
       // Пересечение запрещено, вплотную разрешено - предикат общий
       // с бронированием (issue #12).
-      if (overlapsMeetings(types, meetings, start, slotDurationMs)) {
+      if (overlapsMeetings(types, meetings, startMs, slotDurationMs)) {
         continue;
       }
-      starts.push(new Date(start).toISOString());
+      starts.push(new Date(startMs).toISOString());
     }
   }
   return starts;
+}
+
+/** Валидная позиция старта слота типа: окно записи 14 календарных дней,
+ * рабочие дни пн-пт и часы 09:00-18:00, сетка 30 минут, не в прошлом.
+ * Слот типа занимает время со старта до старта плюс длительность типа -
+ * она должна умещаться до конца рабочего дня. Наложения со встречами
+ * здесь не проверяются (issue #12).
+ */
+export function isSlotPosition(
+  bookingType: MeetingTypeRecord,
+  startMs: number,
+  now: Date,
+): boolean {
+  const start = wallTime(new Date(startMs), OWNER_TIMEZONE);
+  // Прошедшие старты исключены (контракт).
+  if (startMs < now.getTime()) {
+    return false;
+  }
+  // Окно записи: 14 календарных дней, начиная с текущего (контракт).
+  const today = wallTime(now, OWNER_TIMEZONE);
+  const dayOffset =
+    (Date.UTC(start.year, start.month, start.day) -
+      Date.UTC(today.year, today.month, today.day)) /
+    DAY_MS;
+  if (!Number.isInteger(dayOffset) || dayOffset < 0) {
+    return false;
+  }
+  if (dayOffset >= BOOKING_WINDOW_DAYS) {
+    return false;
+  }
+  // Рабочие дни - понедельник по пятницу (контракт).
+  if (start.weekday === 0 || start.weekday === 6) {
+    return false;
+  }
+  // Старты - на шаге сетки 30 минут (контракт).
+  if (start.minuteOfDay % SLOT_STEP_MINUTES !== 0) {
+    return false;
+  }
+  // Рабочие часы 09:00-18:00 (контракт).
+  if (
+    start.minuteOfDay < WORK_START_MINUTES ||
+    start.minuteOfDay + bookingType.durationMinutes > WORK_END_MINUTES
+  ) {
+    return false;
+  }
+  return true;
 }
