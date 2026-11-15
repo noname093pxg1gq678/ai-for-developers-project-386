@@ -357,7 +357,7 @@ describe("гонка брони", () => {
     expect(slotsMock).toHaveBeenCalledTimes(1);
   });
 
-  it("прочие ошибки брони показывают понятное сообщение", async () => {
+  it("прочие ошибки брони показывают понятное сообщение и сохраняют выбор слота", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     createMock.mockRejectedValueOnce(new PublicApiError(0, "сеть недоступна"));
     renderAt("/book/call-45");
@@ -367,5 +367,9 @@ describe("гонка брони", () => {
     expect(
       await screen.findByText("Не удалось выполнить бронирование"),
     ).toBeInTheDocument();
+    // Сброс выбора и перезагрузка сетки - только при 409: выбор сохранён,
+    // форма открыта, сетка не перезагружается.
+    expect(screen.getByLabelText("Имя")).toBeInTheDocument();
+    expect(slotsMock).toHaveBeenCalledTimes(1);
   });
 });

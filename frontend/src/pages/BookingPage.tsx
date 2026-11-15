@@ -128,10 +128,10 @@ export default function BookingPage() {
       });
       setBooking(meeting);
     } catch (error) {
-      setSelectedSlot(null);
       if (error instanceof PublicApiError && error.status === 409) {
-        // Гонка: слот успели занять - сообщение возле сетки слотов
-        // и перезагрузка свободных стартов (issue #12).
+        // Гонка: слот успели занять - сообщение возле сетки слотов,
+        // сброс выбора и перезагрузка свободных стартов (issue #12).
+        setSelectedSlot(null);
         setRaceMessage(error.message);
         slotsLoad.reload();
         return;
