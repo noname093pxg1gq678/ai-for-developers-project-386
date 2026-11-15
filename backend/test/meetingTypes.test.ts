@@ -150,7 +150,6 @@ describe("CRUD типов встреч через API", () => {
     seedMeeting({
       id: crypto.randomUUID(),
       typeId: withFuture.json().id,
-      typeTitle: "Тип с будущей встречей",
       startsAt: "2099-01-01T09:00:00Z",
       guestName: "Гость",
       guestEmail: "guest@example.com",
@@ -158,7 +157,6 @@ describe("CRUD типов встреч через API", () => {
     seedMeeting({
       id: crypto.randomUUID(),
       typeId: withPast.json().id,
-      typeTitle: "Тип с прошедшей встречей",
       startsAt: "2020-01-01T09:00:00Z",
       guestName: "Гость",
       guestEmail: "guest@example.com",

@@ -13,11 +13,15 @@ export interface MeetingTypeRecord {
 export interface MeetingRecord {
   id: string;
   typeId: string;
-  typeTitle: string;
   startsAt: string;
   guestName: string;
   guestEmail: string;
   comment?: string;
+}
+
+/** Встреча для чтения: название типа подставляется на момент чтения. */
+export interface MeetingView extends MeetingRecord {
+  typeTitle: string;
 }
 
 const meetingTypes: MeetingTypeRecord[] = [];
@@ -79,12 +83,21 @@ export function hasFutureMeetings(typeId: string, now = new Date()): boolean {
   );
 }
 
-export function listUpcomingMeetings(now = new Date()): MeetingRecord[] {
+export function listUpcomingMeetings(now = new Date()): MeetingView[] {
   // Предстоящие встречи по возрастанию времени начала, прошедшие исключены
   // (контракт: GET /api/meetings). UTC ISO-строки сортируются лексикографически.
+  // Название типа не хранится в записи, а вычисляется при чтении
+  // (история 11): у предстоящих встреч тип существует всегда - удаление
+  // типа с будущими встречами запрещено.
   return meetings
     .filter((meeting) => meeting.startsAt > now.toISOString())
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    .map((meeting) => {
+      const type = meetingTypes.find(
+        (candidate) => candidate.id === meeting.typeId,
+      );
+      return { ...meeting, typeTitle: type?.title ?? "" };
+    });
 }
 
 /** Тестовый хелпер: добавить встречу до реализации брони (issue #2). */
