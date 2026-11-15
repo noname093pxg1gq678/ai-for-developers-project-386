@@ -27,3 +27,17 @@
 - Файлы `.github/workflows/hexlet-check.yml` и `.github/workflows/README.md` принадлежат Хекслету: их нельзя менять
 - ESLint и Prettier не подключать: линт - oxlint, форматирование - oxfmt, запуск через hk
 - API строится от контракта: TypeSpec -> OpenAPI -> клиентский SDK; сервер пишется по контракту и проверяется тестами
+
+## Agent skills
+
+### Issue tracker
+
+Задачи и спеки живут в GitHub Issues этого репозитория, операции через `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Используются пять дефолтных меток: needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: один GLOSSARY.md и docs/adr/ в корне репозитория. See `docs/agents/domain.md`.
