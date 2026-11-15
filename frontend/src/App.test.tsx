@@ -1,7 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import App from "./App";
+
+beforeEach(() => {
+  window.history.pushState({}, "", "/");
+});
 
 describe("маршруты приложения", () => {
   it("показывает публичную страницу в корне", async () => {
@@ -12,6 +16,15 @@ describe("маршруты приложения", () => {
     ).toBeInTheDocument();
     expect(
       await screen.findByRole("link", { name: /Звонок на 45 минут/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("показывает заглушку панели владельца на /admin", () => {
+    window.history.pushState({}, "", "/admin");
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: "Панель владельца" }),
     ).toBeInTheDocument();
   });
 
