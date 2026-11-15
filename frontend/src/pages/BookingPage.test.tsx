@@ -8,7 +8,7 @@ import {
   loadBookingSlots,
   loadMeetingTypes,
 } from "../data/publicApi";
-import type { MeetingType } from "../api";
+import type { Meeting, MeetingType } from "../api";
 import { renderWithProviders } from "../test/renderWithProviders";
 
 vi.mock("../data/publicApi", async (importOriginal) => {
@@ -31,6 +31,16 @@ const SAMPLE_TYPE: MeetingType = {
   description: "Созвон для обсуждения проекта.",
   durationMinutes: 45,
   createdAt: "2026-11-10T09:00:00Z",
+};
+
+const SAMPLE_MEETING: Meeting = {
+  id: "meeting-1",
+  typeId: "call-45",
+  typeTitle: "Звонок на 45 минут",
+  startsAt: "2026-11-16T06:00:00.000Z",
+  guestName: "Мария Петрова",
+  guestEmail: "maria@example.com",
+  comment: "Хочу обсудить проект",
 };
 
 // Свободные старты окна от воскресенья 2026-11-15: понедельник 16 и среда 18.
@@ -238,5 +248,62 @@ describe("форма гостя", () => {
 
     expect(screen.getAllByText(/обязательно/)).not.toHaveLength(0);
     expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("успешная бронь открывает экран успеха с деталями встречи и путём к типам", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    createMock.mockResolvedValue(SAMPLE_MEETING);
+    renderAt("/book/call-45");
+
+    await user.click(await screen.findByRole("button", { name: "09:00" }));
+    await user.type(await screen.findByLabelText("Имя"), "Мария Петрова");
+    await user.type(screen.getByLabelText("Email"), "maria@example.com");
+    await user.type(
+      screen.getByLabelText("Комментарий"),
+      "Хочу обсудить проект",
+    );
+    await user.click(screen.getByRole("button", { name: "Записаться" }));
+
+    expect(createMock).toHaveBeenCalledWith({
+      typeId: "call-45",
+      startsAt: "2026-11-16T06:00:00.000Z",
+      guestName: "Мария Петрова",
+      guestEmail: "maria@example.com",
+      comment: "Хочу обсудить проект",
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Вы записаны" }),
+    ).toBeInTheDocument();
+    // Дата и время в поясе владельца: 06:00 UTC = 09:00 по Europe/Moscow.
+    expect(screen.getByText("Звонок на 45 минут")).toBeInTheDocument();
+    expect(screen.getByText("16.11.2026, 09:00")).toBeInTheDocument();
+    expect(screen.getByText("Мария Петрова")).toBeInTheDocument();
+    expect(screen.getByText("Хочу обсудить проект")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ко всем типам встреч" }),
+    ).toHaveAttribute("href", "/");
+    // Содержимое записи заменено экраном успеха.
+    expect(screen.queryByLabelText("Имя")).toBeNull();
+    expect(screen.queryByRole("button", { name: "09:00" })).toBeNull();
+  });
+
+  it("успешная бронь без комментария не отправляет поле", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    createMock.mockResolvedValue({ ...SAMPLE_MEETING, comment: undefined });
+    renderAt("/book/call-45");
+
+    await user.click(await screen.findByRole("button", { name: "09:00" }));
+    await user.type(await screen.findByLabelText("Имя"), "Мария Петрова");
+    await user.type(screen.getByLabelText("Email"), "maria@example.com");
+    await user.click(screen.getByRole("button", { name: "Записаться" }));
+
+    expect(createMock).toHaveBeenCalledWith({
+      typeId: "call-45",
+      startsAt: "2026-11-16T06:00:00.000Z",
+      guestName: "Мария Петрова",
+      guestEmail: "maria@example.com",
+    });
+    expect(await screen.findByText("Вы записаны")).toBeInTheDocument();
+    expect(screen.queryByText("Хочу обсудить проект")).toBeNull();
   });
 });
