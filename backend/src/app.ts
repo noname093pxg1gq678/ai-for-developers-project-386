@@ -21,7 +21,9 @@ export async function buildApp(
     // SPA-fallback: неизвестные пути отдают index.html - клиентский роутер
     // сам разрулит /admin и /book/*; API отвечает обычным 404 JSON-ом.
     app.setNotFoundHandler((request, reply) => {
-      if (request.method === "GET" && !request.url.startsWith("/api")) {
+      const pathname = request.url.split("?")[0] ?? request.url;
+      const isApi = pathname === "/api" || pathname.startsWith("/api/");
+      if (request.method === "GET" && !isApi) {
         return reply.sendFile("index.html");
       }
       return reply.code(404).send({ message: "Not found" });

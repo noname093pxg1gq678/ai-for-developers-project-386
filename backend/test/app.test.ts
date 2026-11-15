@@ -68,4 +68,14 @@ describe("раздача статики фронтенда", () => {
     expect(res.json()).toEqual({ message: "Not found" });
     await app.close();
   });
+
+  it("путь, похожий на /api, но вне префикса, получает SPA-fallback", async () => {
+    const app = await buildApp({ logger: false, staticRoot });
+
+    const res = await app.inject({ method: "GET", url: "/apifoo" });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("Тестовая страница фронтенда");
+    await app.close();
+  });
 });
