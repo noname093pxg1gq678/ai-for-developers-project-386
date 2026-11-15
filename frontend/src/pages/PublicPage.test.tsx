@@ -2,31 +2,16 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PublicPage from "./PublicPage";
-import { fetchMeetingTypes } from "../data/meetingTypes";
+import { DEMO_MEETING_TYPES, fetchMeetingTypes } from "../data/meetingTypes";
 import type { MeetingType } from "../data/meetingTypes";
 import { renderWithProviders } from "../test/renderWithProviders";
 
-vi.mock("../data/meetingTypes", () => ({
-  DEMO_MEETING_TYPES: [],
-  fetchMeetingTypes: vi.fn(),
-}));
+vi.mock("../data/meetingTypes", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../data/meetingTypes")>();
+  return { ...actual, fetchMeetingTypes: vi.fn() };
+});
 
 const fetchMock = vi.mocked(fetchMeetingTypes);
-
-const testTypes: MeetingType[] = [
-  {
-    id: "intro-call",
-    title: "Вводный звонок",
-    description: "Знакомство и короткий разговор о задаче.",
-    durationMinutes: 20,
-  },
-  {
-    id: "call-45",
-    title: "Звонок на 45 минут",
-    description: "Созвон для обсуждения проекта. Подготовьте вопросы заранее.",
-    durationMinutes: 45,
-  },
-];
 
 function renderPage() {
   return renderWithProviders(<PublicPage />);
@@ -38,7 +23,7 @@ beforeEach(() => {
 
 describe("публичная страница", () => {
   it("показывает имя владельца заголовком и меняет title документа", () => {
-    fetchMock.mockResolvedValue(testTypes);
+    fetchMock.mockResolvedValue(DEMO_MEETING_TYPES);
     renderPage();
 
     expect(
@@ -48,7 +33,7 @@ describe("публичная страница", () => {
   });
 
   it("показывает карточки типов с описанием и длительностью", async () => {
-    fetchMock.mockResolvedValue(testTypes);
+    fetchMock.mockResolvedValue(DEMO_MEETING_TYPES);
     renderPage();
 
     expect(
@@ -61,7 +46,7 @@ describe("публичная страница", () => {
   });
 
   it("карточка типа ведёт на страницу записи этого типа", async () => {
-    fetchMock.mockResolvedValue(testTypes);
+    fetchMock.mockResolvedValue(DEMO_MEETING_TYPES);
     renderPage();
 
     const link = await screen.findByRole("link", {
@@ -71,14 +56,14 @@ describe("публичная страница", () => {
     expect(link).toHaveAttribute("href", "/book/call-45");
   });
 
-  it("показывает типы по времени создания, новые сверху", async () => {
-    fetchMock.mockResolvedValue(testTypes);
+  it("рендерит типы в порядке источника данных, не пересортировывая", async () => {
+    fetchMock.mockResolvedValue(DEMO_MEETING_TYPES);
     renderPage();
 
     const links = await screen.findAllByRole("link");
 
-    expect(links[0]).toHaveTextContent("Вводный звонок");
-    expect(links[1]).toHaveTextContent("Звонок на 45 минут");
+    expect(links[0]).toHaveTextContent(DEMO_MEETING_TYPES[0].title);
+    expect(links[1]).toHaveTextContent(DEMO_MEETING_TYPES[1].title);
   });
 
   it("без типов показывает пустое состояние", async () => {
@@ -102,7 +87,7 @@ describe("публичная страница", () => {
   it("при ошибке загрузки предлагает повторить и загружает снова", async () => {
     const user = userEvent.setup();
     fetchMock.mockRejectedValueOnce(new Error("сеть недоступна"));
-    fetchMock.mockResolvedValueOnce(testTypes);
+    fetchMock.mockResolvedValueOnce(DEMO_MEETING_TYPES);
     renderPage();
 
     expect(

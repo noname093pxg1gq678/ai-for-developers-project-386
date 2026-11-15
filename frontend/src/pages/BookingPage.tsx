@@ -7,6 +7,8 @@ import { formatDuration } from "../lib/format";
 const BOOKING_PAGE_TITLE = "Запись на встречу";
 
 // Заглушка первого этапа: поток записи реализуется на следующем этапе (issue #2).
+// Заглушку заменят целиком, поэтому данные она берёт напрямую из демо-списка,
+// в отличие от PublicPage - её источник данных меняется на SDK без правок.
 export default function BookingPage() {
   const { typeId } = useParams();
   const meetingType = DEMO_MEETING_TYPES.find((type) => type.id === typeId);
