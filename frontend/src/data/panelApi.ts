@@ -6,8 +6,9 @@ import {
   meetingTypesDeleteType,
   meetingTypesListTypes,
   meetingTypesUpdateType,
+  meetingsList,
 } from "../api";
-import type { MeetingType, MeetingTypeInput } from "../api";
+import type { Meeting, MeetingType, MeetingTypeInput } from "../api";
 
 /** Ошибка запроса к API панели: статус HTTP и понятное сообщение. */
 export class PanelApiError extends Error {
@@ -64,4 +65,12 @@ export async function deletePanelMeetingType(id: string): Promise<void> {
   if (result.error) {
     throw toPanelApiError(result.response?.status ?? 0, result.error);
   }
+}
+
+export async function loadPanelMeetings(): Promise<Meeting[]> {
+  const result = await meetingsList();
+  if (result.error) {
+    throw toPanelApiError(result.response?.status ?? 0, result.error);
+  }
+  return result.data ?? [];
 }

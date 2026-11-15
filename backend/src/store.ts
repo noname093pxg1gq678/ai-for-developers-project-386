@@ -79,6 +79,14 @@ export function hasFutureMeetings(typeId: string, now = new Date()): boolean {
   );
 }
 
+export function listUpcomingMeetings(now = new Date()): MeetingRecord[] {
+  // Предстоящие встречи по возрастанию времени начала, прошедшие исключены
+  // (контракт: GET /api/meetings). UTC ISO-строки сортируются лексикографически.
+  return meetings
+    .filter((meeting) => meeting.startsAt > now.toISOString())
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+}
+
 /** Тестовый хелпер: добавить встречу до реализации брони (issue #2). */
 export function seedMeeting(meeting: MeetingRecord): void {
   meetings.push(meeting);
