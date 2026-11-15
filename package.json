@@ -11,7 +11,19 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "typecheck": "npm run typecheck --workspaces"
+    "typecheck": "npm run typecheck --workspaces",
+    "contract:generate": "cd contract && tsp compile ./main.tsp && cd .. && openapi-ts",
+    "contract:check": "npm run contract:generate && git diff --exit-code -- contract/generated frontend/src/api"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.99.0",
+    "@typespec/compiler": "^1.18.0",
+    "@typespec/openapi3": "^1.18.0",
+    "@typespec/rest": "^0.88.0",
+    "typescript": "5.9"
+  },
+  "overrides": {
+    "@hey-api/json-schema-ref-parser": "1.4.1"
   },
   "allowScripts": {
     "esbuild@0.28.2": true
