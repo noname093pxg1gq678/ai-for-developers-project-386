@@ -12,8 +12,7 @@ import {
   updateMeetingType,
   createBooking,
 } from "./store.js";
-import type { MeetingRecord } from "./store.js";
-import { validateMeetingTypeBody } from "./validation.js";
+import { validateBookingBody, validateMeetingTypeBody } from "./validation.js";
 
 export interface AppOptions {
   logger?: boolean;
@@ -57,8 +56,14 @@ export async function buildApp(
 
   // Бронирование свободного слота (контракт, issue #12).
   app.post("/api/bookings", async (request, reply) => {
-    const input = request.body as Omit<MeetingRecord, "id">;
-    const record = createBooking(input);
+    const validation = validateBookingBody(request.body);
+    if ("error" in validation) {
+      return reply.code(400).send({ message: validation.error });
+    }
+    if (!meetingTypeExists(validation.input.typeId)) {
+      return reply.code(404).send({ message: "Тип встречи не найден" });
+    }
+    const record = createBooking(validation.input);
     if (!record) {
       return reply.code(409).send({ message: "Слот уже занят" });
     }

@@ -46,3 +46,66 @@ export function validateMeetingTypeBody(body: unknown): MeetingTypeValidation {
   }
   return { input: { title, description, durationMinutes } };
 }
+
+// Паттерн email - из контракта (issue #12): имя@домен.зона без пробелов.
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+export interface BookingBody {
+  typeId: string;
+  startsAt: string;
+  guestName: string;
+  guestEmail: string;
+  comment?: string;
+}
+
+export type BookingValidation = { input: BookingBody } | { error: string };
+
+/** Валидация брони по контракту: тип обязателен, старт - момент UTC,
+ * имя гостя обязательное до 100 символов, email обязательный с паттерном,
+ * комментарий опциональный до 500 символов.
+ */
+export function validateBookingBody(body: unknown): BookingValidation {
+  if (typeof body !== "object" || body === null) {
+    return {
+      error:
+        "Ожидается JSON-объект с полями typeId, startsAt, guestName и guestEmail",
+    };
+  }
+  const record = body as Record<string, unknown>;
+  const { typeId, startsAt, guestName, guestEmail, comment } = record;
+
+  if (typeof typeId !== "string" || typeId.length === 0) {
+    return { error: "Тип встречи обязателен" };
+  }
+  if (typeof startsAt !== "string" || Number.isNaN(Date.parse(startsAt))) {
+    return { error: "Время начала должно быть моментом в формате ISO 8601" };
+  }
+  if (typeof guestName !== "string" || guestName.length === 0) {
+    return { error: "Имя гостя обязательно" };
+  }
+  if (guestName.length > 100) {
+    return { error: "Имя гостя не может быть длиннее 100 символов" };
+  }
+  if (typeof guestEmail !== "string" || !EMAIL_PATTERN.test(guestEmail)) {
+    return { error: "Email гостя обязателен и должен быть корректным" };
+  }
+  if (comment !== undefined) {
+    if (typeof comment !== "string") {
+      return { error: "Комментарий должен быть строкой" };
+    }
+    if (comment.length > 500) {
+      return { error: "Комментарий не может быть длиннее 500 символов" };
+    }
+  }
+
+  return {
+    input: {
+      typeId,
+      // Время нормализуется к UTC Z при записи в хранилище.
+      startsAt: new Date(startsAt).toISOString(),
+      guestName,
+      guestEmail,
+      ...(comment === undefined ? {} : { comment }),
+    },
+  };
+}
