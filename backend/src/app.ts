@@ -5,6 +5,7 @@ import {
   deleteMeetingType,
   hasFutureMeetings,
   listMeetingTypes,
+  listUpcomingMeetings,
   meetingTypeExists,
   updateMeetingType,
 } from "./store.js";
@@ -35,6 +36,9 @@ export async function buildApp(
   });
 
   app.get("/api/meeting-types", async () => listMeetingTypes());
+
+  // Предстоящие встречи владельца по всем типам (контракт).
+  app.get("/api/meetings", async () => listUpcomingMeetings());
 
   app.put("/api/meeting-types/:id", async (request, reply) => {
     const validation = validateMeetingTypeBody(request.body);
