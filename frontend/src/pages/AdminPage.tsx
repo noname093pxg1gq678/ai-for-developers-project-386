@@ -13,15 +13,16 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import type { MeetingType, MeetingTypeInput } from "../api";
+import type { Meeting, MeetingType, MeetingTypeInput } from "../api";
 import {
   PanelApiError,
   createPanelMeetingType,
   deletePanelMeetingType,
   loadPanelMeetingTypes,
+  loadPanelMeetings,
   updatePanelMeetingType,
 } from "../data/panelApi";
-import { formatDuration } from "../lib/format";
+import { formatDuration, formatMeetingDateTime } from "../lib/format";
 
 type LoadStatus = "loading" | "ready" | "error";
 
@@ -77,6 +78,9 @@ export default function AdminPage() {
   const [types, setTypes] = useState<MeetingType[]>([]);
   const [attempt, setAttempt] = useState(0);
 
+  const [meetingsStatus, setMeetingsStatus] = useState<LoadStatus>("loading");
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
@@ -107,8 +111,29 @@ export default function AdminPage() {
     };
   }, [attempt]);
 
+  useEffect(() => {
+    let cancelled = false;
+    loadPanelMeetings()
+      .then((loaded) => {
+        if (cancelled) {
+          return;
+        }
+        setMeetings(loaded);
+        setMeetingsStatus("ready");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMeetingsStatus("error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
   const retry = () => {
     setStatus("loading");
+    setMeetingsStatus("loading");
     setAttempt((current) => current + 1);
   };
 
@@ -278,6 +303,58 @@ export default function AdminPage() {
                     Удалить
                   </Button>
                 </Group>
+              </Stack>
+            </Card>
+          ))}
+        </Stack>
+      )}
+
+      <Title order={2} mt="xl" mb="md">
+        Предстоящие встречи
+      </Title>
+
+      {meetingsStatus === "error" && (
+        <Stack align="center" gap="sm">
+          <Text c="red">Не удалось загрузить встречи</Text>
+          <Button variant="light" onClick={retry}>
+            Повторить
+          </Button>
+        </Stack>
+      )}
+      {meetingsStatus === "ready" && meetings.length === 0 && (
+        <Text c="dimmed" ta="center">
+          Пока нет встреч
+        </Text>
+      )}
+      {meetingsStatus === "ready" && meetings.length > 0 && (
+        <Stack
+          component="ul"
+          gap="md"
+          style={{ listStyle: "none" }}
+          p={0}
+          m={0}
+        >
+          {meetings.map((meeting) => (
+            <Card
+              key={meeting.id}
+              component="li"
+              withBorder
+              padding="lg"
+              radius="md"
+            >
+              <Stack gap="xs">
+                <Text size="lg" fw={600}>
+                  {meeting.typeTitle}
+                </Text>
+                <Text size="sm">{meeting.guestName}</Text>
+                {meeting.comment && (
+                  <Text size="sm" c="dimmed">
+                    {meeting.comment}
+                  </Text>
+                )}
+                <Text size="sm" c="dimmed">
+                  {formatMeetingDateTime(meeting.startsAt)}
+                </Text>
               </Stack>
             </Card>
           ))}

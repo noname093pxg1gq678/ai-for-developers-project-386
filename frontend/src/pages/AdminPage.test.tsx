@@ -7,9 +7,10 @@ import {
   createPanelMeetingType,
   deletePanelMeetingType,
   loadPanelMeetingTypes,
+  loadPanelMeetings,
   updatePanelMeetingType,
 } from "../data/panelApi";
-import type { MeetingType } from "../api";
+import type { Meeting, MeetingType } from "../api";
 import { renderWithProviders } from "../test/renderWithProviders";
 
 vi.mock("../data/panelApi", async (importOriginal) => {
@@ -17,6 +18,7 @@ vi.mock("../data/panelApi", async (importOriginal) => {
   return {
     ...actual,
     loadPanelMeetingTypes: vi.fn(),
+    loadPanelMeetings: vi.fn(),
     createPanelMeetingType: vi.fn(),
     updatePanelMeetingType: vi.fn(),
     deletePanelMeetingType: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock("../data/panelApi", async (importOriginal) => {
 });
 
 const loadMock = vi.mocked(loadPanelMeetingTypes);
+const loadMeetingsMock = vi.mocked(loadPanelMeetings);
 const createMock = vi.mocked(createPanelMeetingType);
 const updateMock = vi.mocked(updatePanelMeetingType);
 const deleteMock = vi.mocked(deletePanelMeetingType);
@@ -64,7 +67,9 @@ beforeEach(() => {
   createMock.mockReset();
   updateMock.mockReset();
   deleteMock.mockReset();
+  loadMeetingsMock.mockReset();
   loadMock.mockResolvedValue([]);
+  loadMeetingsMock.mockResolvedValue([]);
 });
 
 describe("панель владельца - список типов", () => {
@@ -325,5 +330,79 @@ describe("панель владельца - удаление типа", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Вводный звонок")).toBeInTheDocument();
+  });
+});
+
+const SAMPLE_MEETINGS: Meeting[] = [
+  {
+    id: "meeting-1",
+    typeId: "call-45",
+    typeTitle: "Звонок на 45 минут",
+    startsAt: "2026-11-18T09:00:00Z",
+    guestName: "Мария Петрова",
+    guestEmail: "maria@example.com",
+    comment: "Хочу обсудить проект",
+  },
+  {
+    id: "meeting-2",
+    typeId: "intro-call",
+    typeTitle: "Вводный звонок",
+    startsAt: "2026-11-19T14:00:00Z",
+    guestName: "Иван Смирнов",
+    guestEmail: "ivan@example.com",
+  },
+];
+
+describe("панель владельца - предстоящие встречи", () => {
+  it("показывает встречи: название, гостя, комментарий, дату и время в поясе владельца", async () => {
+    loadMeetingsMock.mockResolvedValue(SAMPLE_MEETINGS);
+    renderPage();
+
+    const items = await screen.findAllByRole("listitem");
+    expect(items).toHaveLength(2);
+
+    const first = itemByTitle("Звонок на 45 минут");
+    expect(within(first).getByText("Мария Петрова")).toBeInTheDocument();
+    expect(within(first).getByText("Хочу обсудить проект")).toBeInTheDocument();
+    // 09:00 UTC = 12:00 в Europe/Moscow (ADR 0002).
+    expect(within(first).getByText("18.11.2026, 12:00")).toBeInTheDocument();
+
+    const second = itemByTitle("Вводный звонок");
+    expect(within(second).getByText("Иван Смирнов")).toBeInTheDocument();
+    // Без комментария лишнего текста нет.
+    expect(within(second).queryByText(/обсудить/)).toBeNull();
+  });
+
+  it("рендерит встречи в порядке API - по возрастанию времени начала", async () => {
+    loadMeetingsMock.mockResolvedValue(SAMPLE_MEETINGS);
+    renderPage();
+
+    const items = await screen.findAllByRole("listitem");
+
+    expect(items[0]).toHaveTextContent("Звонок на 45 минут");
+    expect(items[1]).toHaveTextContent("Вводный звонок");
+  });
+
+  it("без встреч показывает пустое состояние", async () => {
+    renderPage();
+
+    expect(await screen.findByText("Пока нет встреч")).toBeInTheDocument();
+  });
+
+  it("при ошибке загрузки предлагает повторить и загружает снова", async () => {
+    const user = userEvent.setup();
+    loadMeetingsMock.mockRejectedValueOnce(
+      new PanelApiError(0, "сеть недоступна"),
+    );
+    loadMeetingsMock.mockResolvedValueOnce(SAMPLE_MEETINGS);
+    renderPage();
+
+    expect(
+      await screen.findByText("Не удалось загрузить встречи"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Повторить" }));
+
+    expect(await screen.findByText("Мария Петрова")).toBeInTheDocument();
   });
 });
