@@ -1,13 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "render": {
-      "type": "remote",
-      "url": "https://mcp.render.com/mcp",
-      "enabled": true,
-      "oauth": false,
-      "headers": {
-        "Authorization": "Bearer {env:RENDER_API_KEY}"
+    "servers": {
+      "railway": {
+        "type": "remote",
+        "url": "https://mcp.railway.com/mcp"
       }
     }
   }
