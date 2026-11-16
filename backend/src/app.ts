@@ -52,7 +52,7 @@ export async function buildApp(
   });
 
   // Предстоящие встречи владельца по всем типам (контракт).
-  app.get("/api/meetings", async () => listUpcomingMeetings());
+  app.get("/api/meetings", async () => listUpcomingMeetings(options.now));
 
   // Бронирование свободного слота (контракт, issue #12): только валидная
   // позиция свободного слота, пересечение - 409.
@@ -92,7 +92,7 @@ export async function buildApp(
     if (!meetingTypeExists(id)) {
       return reply.code(404).send({ message: "Тип встречи не найден" });
     }
-    if (hasFutureMeetings(id)) {
+    if (hasFutureMeetings(id, options.now)) {
       return reply.code(409).send({
         message: "Нельзя удалить тип встречи с предстоящими встречами",
       });
