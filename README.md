@@ -99,6 +99,12 @@ docker run --rm -p 3000:3000 call-booking
 
 Откройте http://localhost:3000 - публичная страница для гостей. Панель владельца доступна только по прямому URL http://localhost:3000/admin - переходов между поверхностями нет (см. [ADR 0001](docs/adr/0001-disconnected-surfaces.md)). Здоровье API - http://localhost:3000/api/health, по нему же контейнер делает HEALTHCHECK.
 
+## Деплой
+
+Приложение опубликовано: **https://call-booking-production-85a10cee.up.railway.app** - тот же Docker-образ из корневого Dockerfile, деплой на Railway из ветки main, порт берётся из переменной окружения `PORT`, которую платформа предоставляет сама. Данные хранятся в памяти процесса: перезапуск сервиса на Railway сбрасывает типы встреч и бронирования.
+
+Подключение MCP-сервера Railway (без секретов) и порядок деплоя - в [docs/deploy-mcp.md](docs/deploy-mcp.md): конфигурация в `opencode.json`, авторизация через OAuth, токены вне репозитория.
+
 ---
 
 <details>
