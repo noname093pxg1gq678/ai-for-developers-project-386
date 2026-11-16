@@ -49,6 +49,18 @@ describe("маршруты приложения", () => {
     ).toBeInTheDocument();
   });
 
+  it("показывает страницу 404 для неизвестного маршрута", () => {
+    window.history.pushState({}, "", "/somewhere/unknown");
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: "Страница не найдена" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ко всем типам встреч" }),
+    ).toHaveAttribute("href", "/");
+  });
+
   it("карточка типа ведёт на страницу записи", async () => {
     const user = userEvent.setup();
     render(<App />);
