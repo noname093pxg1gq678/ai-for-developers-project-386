@@ -65,11 +65,20 @@ run = "npm run build --workspaces"
 description = "Run tests"
 run = "npm run test --workspaces"
 
+[tasks.e2e]
+description = "Build the app and run Playwright e2e tests against a real server"
+run = [
+  { task = "build" },
+  "npx playwright install chromium",
+  "npx playwright test",
+]
+
 [tasks.check]
-description = "Run every check: lint, types, build, tests"
+description = "Run every check: lint, types, build, tests, e2e"
 run = [
   { task = "lint" },
   { task = "typecheck" },
   { task = "build" },
   { task = "test" },
+  { task = "e2e" },
 ]

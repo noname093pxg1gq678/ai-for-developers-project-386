@@ -6,8 +6,9 @@
 
 - `mise run setup` - установить зависимости (npm) и git-хуки (hk)
 - `mise run dev` - поднять дев-серверы: бекенд :3000, фронтенд :5173. Остановить: `mise daemons stop`, логи: `mise daemons logs backend|frontend`
-- `mise run check` - все проверки: линт (oxlint, oxfmt, jactionlint, mise fmt), типы (tsc), сборка, тесты (vitest). Эту же команду запускает CI
+- `mise run check` - все проверки: линт (oxlint, oxfmt, jactionlint, mise fmt), типы (tsc), сборка, тесты (vitest), e2e (Playwright). Эту же команду запускает CI
 - `mise run fix` - автофиксы линта и форматирования
+- `mise run e2e` - e2e-тесты Playwright: сборка, установка chromium, прогон браузерного сценария против настоящего сервера (собранное приложение одним процессом, без моков API)
 - По отдельности: `mise run test`, `mise run lint`, `mise run typecheck`, `mise run build`
 
 Версии инструментов (node, hk, oxlint, oxfmt, pitchfork, jactionlint) зафиксированы в `mise.toml`; `mise install` их ставит, а mise-хук postinstall после установки запускает `npm install`.
