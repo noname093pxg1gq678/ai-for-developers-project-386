@@ -339,4 +339,95 @@ describe("бронирование слота через API", () => {
 
     expect(response.statusCode).toBe(201);
   });
+
+  // Атомарность брони при конкурентных запросах (issue #5): проверка
+  // пересечений и запись выполняются в одной синхронной транзакции
+  // хранилища, однопоточный event loop делает её атомарной. inject-запросы
+  // планируются тем же event loop, что и хранилище, поэтому гонка
+  // детерминирована. Тесты - страж: падают, если между проверкой и записью
+  // появится точка await.
+  describe("конкурентные брони", () => {
+    async function booking(
+      app: FastifyInstance,
+      payload: Record<string, unknown>,
+    ) {
+      return app.inject({
+        method: "POST",
+        url: "/api/bookings",
+        payload,
+      });
+    }
+
+    it("двадцать одинаковых POST на один слот: ровно один 201, остальные 409, встреча одна", async () => {
+      const typeId = await createType(30);
+      const payload = {
+        typeId,
+        startsAt: "2026-11-16T06:00:00Z",
+        guestName: "Мария Петрова",
+        guestEmail: "maria@example.com",
+      };
+
+      const responses = await Promise.all(
+        Array.from({ length: 20 }, () => booking(app, payload)),
+      );
+
+      const created = responses.filter((r) => r.statusCode === 201);
+      const conflicts = responses.filter((r) => r.statusCode === 409);
+      expect(created).toHaveLength(1);
+      expect(conflicts).toHaveLength(19);
+      for (const response of conflicts) {
+        expect(response.json().message).toEqual(expect.any(String));
+      }
+
+      const list = await app.inject({ method: "GET", url: "/api/meetings" });
+      expect(list.json()).toHaveLength(1);
+    });
+
+    it("две одновременные брони на разные слоты: обе 201", async () => {
+      const typeId = await createType(30);
+
+      const responses = await Promise.all([
+        booking(app, {
+          typeId,
+          startsAt: "2026-11-16T06:00:00Z",
+          guestName: "Мария Петрова",
+          guestEmail: "maria@example.com",
+        }),
+        booking(app, {
+          typeId,
+          startsAt: "2026-11-16T07:00:00Z",
+          guestName: "Анна Кузнецова",
+          guestEmail: "anna@example.com",
+        }),
+      ]);
+
+      expect(responses.map((r) => r.statusCode)).toEqual([201, 201]);
+    });
+
+    it("одновременные брони разных типов на перекрывающееся время: один 201, пересечение 409", async () => {
+      const firstTypeId = await createType(60);
+      const secondTypeId = await createType(30);
+
+      const responses = await Promise.all([
+        booking(app, {
+          typeId: firstTypeId,
+          startsAt: "2026-11-16T06:00:00Z",
+          guestName: "Мария Петрова",
+          guestEmail: "maria@example.com",
+        }),
+        booking(app, {
+          typeId: secondTypeId,
+          startsAt: "2026-11-16T06:30:00Z",
+          guestName: "Анна Кузнецова",
+          guestEmail: "anna@example.com",
+        }),
+      ]);
+
+      const created = responses.filter((r) => r.statusCode === 201);
+      const conflicts = responses.filter((r) => r.statusCode === 409);
+      expect(created).toHaveLength(1);
+      expect(conflicts).toHaveLength(1);
+      expect(conflicts[0]?.json().message).toEqual(expect.any(String));
+    });
+  });
 });

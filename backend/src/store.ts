@@ -162,6 +162,9 @@ export function createBooking(
   ) {
     return { status: "conflict" };
   }
+  // В транзакции брони нет await между проверкой пересечений и записью;
+  // однопоточный event loop делает её атомарной; конкурентный тест - страж
+  // (issue #5).
   const record: MeetingRecord = {
     ...input,
     startsAt: new Date(input.startsAt).toISOString(),
