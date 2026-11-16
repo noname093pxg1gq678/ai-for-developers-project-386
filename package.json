@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.99.0",
+    "@playwright/test": "^1.65.1",
     "@typespec/compiler": "^1.18.0",
     "@typespec/openapi3": "^1.18.0",
     "typescript": "5.9"
