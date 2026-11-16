@@ -99,8 +99,6 @@ docker run --rm -p 3000:3000 call-booking
 
 Откройте http://localhost:3000 - публичная страница для гостей. Панель владельца доступна только по прямому URL http://localhost:3000/admin - переходов между поверхностями нет (см. [ADR 0001](docs/adr/0001-disconnected-surfaces.md)). Здоровье API - http://localhost:3000/api/health, по нему же контейнер делает HEALTHCHECK.
 
-<!-- TODO: добавьте запись asciinema - именно это смотрит работодатель -->
-
 ---
 
 <details>
